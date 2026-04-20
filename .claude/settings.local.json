@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git --version)",
+      "Bash(cp -r /tmp/anthropics-skills/skills/skill-creator ~/.claude/skills/skill-creator)",
+      "Bash(cp -r /tmp/bk-ci/ai/skills/frontend-vue-development ~/.claude/skills/frontend-vue-development)",
+      "Bash(cp -r /tmp/anna-agent-skills/ui-design ~/.claude/skills/ui-design)",
+      "Bash(cp -r /tmp/pro-workflow/skills/agent-teams ~/.claude/skills/agent-teams)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' ~/.claude/settings.json)",
+      "Bash(node -e \"const s=JSON.parse\\(require\\('fs'\\).readFileSync\\(process.env.HOME+'/.claude/settings.json','utf8'\\)\\); console.log\\('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS =', s.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS\\)\")",
+      "Read(//c/Users/17622/.claude/teams/jiedan-zhushou/**)",
+      "Read(//c/Users/17622/.claude/tasks/**)",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(tasklist)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(rm -rf node_modules)",
+      "Bash(rm -f package-lock.json)",
+      "Bash(npm config *)",
+      "Bash(env)",
+      "Bash(HTTPS_PROXY= HTTP_PROXY= npm install)",
+      "Bash(HTTPS_PROXY= HTTP_PROXY= npm run dev)",
+      "Bash(./node_modules/.bin/electron --version)",
+      "Bash(./node_modules/electron/dist/electron.exe --version)"
+    ]
+  }
+}

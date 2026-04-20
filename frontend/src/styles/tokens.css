@@ -1,0 +1,47 @@
+:root {
+  /* 主题：奶油蓝 */
+  --color-bg: #FFFBF3;
+  --color-bg-soft: #FBF3E1;
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #F6F1E4;
+
+  --color-brand-50: #F2F7FD;
+  --color-brand-100: #DEEAF8;
+  --color-brand-200: #BED6F1;
+  --color-brand-300: #9CC1EA;
+  --color-brand-400: #8FB8E8;
+  --color-brand-500: #6EA1DF;
+  --color-brand-600: #5286C4;
+  --color-brand-700: #3E6EA6;
+
+  --color-ink-900: #2C3440;
+  --color-ink-700: #4F5968;
+  --color-ink-500: #7C8594;
+  --color-ink-300: #B4BBC6;
+  --color-ink-100: #E5E8EE;
+
+  --color-success: #8FBE9E;
+  --color-warning: #E4B77A;
+  --color-danger: #D98B92;
+  --color-info: #8FB8E8;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  --shadow-soft: 0 6px 24px -8px rgba(78, 118, 170, 0.18);
+  --shadow-pop: 0 10px 30px -10px rgba(78, 118, 170, 0.35);
+
+  --font-hand: 'LXGW WenKai', 'Kose Font', '站酷快乐体', cursive;
+  --font-sans: 'HarmonyOS Sans', 'Source Han Sans CN', 'PingFang SC', system-ui, sans-serif;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+}
