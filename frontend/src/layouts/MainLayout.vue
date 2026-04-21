@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRoute } from 'vue-router';
 import { computed } from 'vue';
+import UpdateBadge from '@/components/UpdateBadge.vue';
 
 const route = useRoute();
 const pageTitle = computed(() => (route.meta?.title as string) || '接单助手');
@@ -35,8 +36,9 @@ const navs = [
     </aside>
 
     <main class="flex flex-col min-h-0 overflow-hidden">
-      <header class="bg-cream-100/80 backdrop-blur px-8 py-4 border-b border-cream-300/50 z-10 shrink-0">
+      <header class="bg-cream-100/80 backdrop-blur px-8 py-4 border-b border-cream-300/50 z-10 shrink-0 flex items-center justify-between gap-4">
         <h2 class="text-2xl font-hand text-ink-900">{{ pageTitle }}</h2>
+        <UpdateBadge />
       </header>
       <div class="p-8 flex-1 min-h-0 overflow-auto">
         <RouterView v-slot="{ Component }">

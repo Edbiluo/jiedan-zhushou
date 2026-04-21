@@ -17,3 +17,8 @@ backend/data/
 .env.local
 .cache/
 .temp/
+
+# build output
+release/
+dev.log
+

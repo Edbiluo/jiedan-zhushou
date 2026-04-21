@@ -5,6 +5,9 @@ const { initDb, getDb } = require('../backend/db');
 const { startServer, stopServer } = require('../backend/server');
 const services = require('../backend/services');
 
+let autoUpdater = null;
+try { autoUpdater = require('electron-updater').autoUpdater; } catch {}
+
 const isDev = process.env.NODE_ENV === 'development';
 let mainWindow = null;
 let reminderTimer = null;
@@ -78,11 +81,51 @@ function scheduleDailyReminder() {
   }, delay);
 }
 
+// ============ 自动更新 ============
+// 状态推给渲染进程，前端显示小徽章
+function pushUpdateState(state) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('updater:state', state);
+  }
+}
+
+function setupAutoUpdater() {
+  if (!autoUpdater || isDev) return; // 开发态不做检查
+  autoUpdater.autoDownload = true; // 自动下载
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => pushUpdateState({ status: 'checking' }));
+  autoUpdater.on('update-available', (info) => pushUpdateState({ status: 'available', version: info.version }));
+  autoUpdater.on('update-not-available', () => pushUpdateState({ status: 'none' }));
+  autoUpdater.on('download-progress', (p) => pushUpdateState({ status: 'downloading', percent: p.percent }));
+  autoUpdater.on('update-downloaded', (info) => pushUpdateState({ status: 'downloaded', version: info.version }));
+  autoUpdater.on('error', (err) => pushUpdateState({ status: 'error', message: String(err?.message || err) }));
+
+  // 启动 30 秒后检查一次，之后每 4 小时一次
+  setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 30 * 1000);
+  setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 4 * 60 * 60 * 1000);
+}
+
 function registerIpc() {
   ipcMain.handle('app:showUnreportedToday', () => {
     const today = new Date().toISOString().slice(0, 10);
     return !services.dayLog.isReported(today);
   });
+
+  // updater IPC
+  ipcMain.handle('updater:checkNow', async () => {
+    if (!autoUpdater || isDev) return { ok: false, reason: 'not supported' };
+    try {
+      const r = await autoUpdater.checkForUpdates();
+      return { ok: true, version: r?.updateInfo?.version };
+    } catch (e) {
+      return { ok: false, reason: String(e?.message || e) };
+    }
+  });
+  ipcMain.handle('updater:quitAndInstall', () => {
+    if (autoUpdater) autoUpdater.quitAndInstall();
+  });
+  ipcMain.handle('app:version', () => app.getVersion());
 
   ipcMain.handle('file:pickImage', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -127,6 +170,7 @@ app.whenReady().then(() => {
   registerIpc();
   createWindow();
   scheduleDailyReminder();
+  setupAutoUpdater();
 });
 
 app.on('window-all-closed', () => {
