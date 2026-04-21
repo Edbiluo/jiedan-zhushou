@@ -34,7 +34,7 @@ async function checkNow() {
 </script>
 
 <template>
-  <div class="flex items-center gap-2 text-xs font-hand">
+  <div class="flex items-center gap-2 text-xs">
     <!-- 下载完成：可重启安装 -->
     <button v-if="state.status === 'downloaded'"
             class="bg-brand-400 hover:bg-brand-500 text-white rounded-full px-3 py-1 shadow-soft transition"

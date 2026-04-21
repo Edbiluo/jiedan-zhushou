@@ -28,14 +28,13 @@ function averagePrice(fromMonth, toMonth) {
 }
 
 function styleDistribution(fromMonth, toMonth) {
+  // v2：款式从 book.style_id 取（本级）
   return getDb()
     .prepare(
       `SELECT COALESCE(s.name, '未分类') AS style_name, COUNT(*) AS page_count
-       FROM schedule sc
-       JOIN page p ON p.id = sc.page_id
-       JOIN book b ON b.id = sc.book_id
-       LEFT JOIN style s ON s.id = p.style_id
-       WHERE b.status = 'completed' AND sc.is_done = 1
+       FROM book b
+       LEFT JOIN style s ON s.id = b.style_id
+       WHERE b.status = 'completed' AND b.completed_at IS NOT NULL
          AND strftime('%Y-%m', b.completed_at) BETWEEN ? AND ?
        GROUP BY style_name ORDER BY page_count DESC`
     )
@@ -54,27 +53,13 @@ function completedBookCount(fromMonth, toMonth) {
     .all(fromMonth, toMonth);
 }
 
-function avgPageHoursTrend(fromMonth, toMonth) {
-  return getDb()
-    .prepare(
-      `SELECT strftime('%Y-%m', sc.date) AS month,
-              AVG(sc.actual_hours) AS avg_hours,
-              COUNT(*) AS samples
-       FROM schedule sc
-       WHERE sc.is_done = 1 AND sc.actual_hours IS NOT NULL
-         AND strftime('%Y-%m', sc.date) BETWEEN ? AND ?
-       GROUP BY month ORDER BY month`
-    )
-    .all(fromMonth, toMonth);
-}
-
 function summary(fromMonth, toMonth) {
   return {
     monthly_income: monthlyIncome(fromMonth, toMonth),
     average_price: averagePrice(fromMonth, toMonth),
     style_distribution: styleDistribution(fromMonth, toMonth),
     completed_book_count: completedBookCount(fromMonth, toMonth),
-    avg_page_hours: avgPageHoursTrend(fromMonth, toMonth),
+    avg_page_hours: [],
   };
 }
 
@@ -83,6 +68,5 @@ module.exports = {
   averagePrice,
   styleDistribution,
   completedBookCount,
-  avgPageHoursTrend,
   summary,
 };

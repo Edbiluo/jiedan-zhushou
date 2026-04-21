@@ -136,6 +136,15 @@ function registerIpc() {
     return result.filePaths[0];
   });
 
+  ipcMain.handle('file:pickImages', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'] }],
+      properties: ['openFile', 'multiSelections'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return [];
+    return result.filePaths;
+  });
+
   ipcMain.handle('file:exportBackup', async () => {
     const result = await dialog.showSaveDialog(mainWindow, {
       defaultPath: `jiedan-backup-${Date.now()}.zip`,
@@ -159,13 +168,6 @@ app.whenReady().then(() => {
   const userDataDir = getUserDataDir();
   ensureImageDirs();
   initDb(path.join(userDataDir, 'app.db'));
-  // 启动时用当前算法对所有未完成本重排一次，确保老数据/算法升级后也刷新为最新计划
-  try {
-    const result = services.schedules.recomputeAll();
-    console.log('[jiedan] startup recompute:', result);
-  } catch (e) {
-    console.error('[jiedan] startup recompute failed:', e.message);
-  }
   startServer(3899);
   registerIpc();
   createWindow();

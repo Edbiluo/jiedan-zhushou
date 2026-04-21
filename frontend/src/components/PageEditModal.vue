@@ -110,35 +110,35 @@ async function submit() {
     <div v-if="open" class="fixed inset-0 z-[60] grid place-items-center">
       <div class="absolute inset-0 bg-ink-900/30 backdrop-blur-sm" @click="close" />
       <div class="relative card w-[520px] max-w-[92vw] max-h-[90vh] overflow-auto animate-pop">
-        <h3 class="text-lg font-hand text-brand-700 mb-4">{{ target ? '编辑画页' : '上传画页' }}</h3>
+        <h3 class="text-lg text-brand-700 mb-4">{{ target ? '编辑画页' : '上传画页' }}</h3>
         <div class="space-y-3">
           <div>
-            <label class="text-xs text-ink-500 font-hand">标题</label>
+            <label class="text-xs text-ink-500">标题</label>
             <input v-model="form.title" class="input" placeholder="比如：樱花主题小涂鸦" />
           </div>
           <div v-if="!target">
-            <label class="text-xs text-ink-500 font-hand">图片</label>
+            <label class="text-xs text-ink-500">图片</label>
             <div class="flex gap-2 items-center">
-              <button class="btn-ghost font-hand" @click="pickImage">选择图片</button>
+              <button class="btn-ghost" @click="pickImage">选择图片</button>
               <span class="text-xs text-ink-500 truncate">{{ form.src_path || '未选择' }}</span>
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <label class="text-sm font-hand flex items-center gap-2">
+            <label class="text-sm flex items-center gap-2">
               <input type="checkbox" v-model="form.is_cover" /> 这是封页
             </label>
           </div>
           <template v-if="!form.is_cover">
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="text-xs text-ink-500 font-hand">款式</label>
+                <label class="text-xs text-ink-500">款式</label>
                 <select v-model="form.style_id" class="input">
                   <option :value="undefined">不选</option>
                   <option v-for="s in settings.styles" :key="s.id" :value="s.id">{{ s.name }}</option>
                 </select>
               </div>
               <div>
-                <label class="text-xs text-ink-500 font-hand">尺寸</label>
+                <label class="text-xs text-ink-500">尺寸</label>
                 <select v-model="form.size_id" class="input">
                   <option :value="undefined">不选</option>
                   <option v-for="s in settings.sizes" :key="s.id" :value="s.id">{{ s.name }}</option>
@@ -147,17 +147,13 @@ async function submit() {
             </div>
           </template>
           <div>
-            <label class="text-xs text-ink-500 font-hand">预估绘画时长（小时）</label>
-            <input v-model.number="form.estimated_hours" type="number" min="0.25" step="0.25" class="input" />
-          </div>
-          <div>
-            <label class="text-xs text-ink-500 font-hand">备注</label>
+            <label class="text-xs text-ink-500">备注</label>
             <textarea v-model="form.note" class="input" rows="2" />
           </div>
         </div>
         <div class="flex justify-end gap-2 mt-4">
-          <button class="btn-ghost font-hand" :disabled="submitting" @click="close">取消</button>
-          <button class="btn-primary font-hand" :disabled="submitting" @click="submit">
+          <button class="btn-ghost" :disabled="submitting" @click="close">取消</button>
+          <button class="btn-primary" :disabled="submitting" @click="submit">
             {{ submitting ? '保存中…' : target ? '保存' : '上传' }}
           </button>
         </div>

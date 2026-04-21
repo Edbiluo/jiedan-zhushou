@@ -9,4 +9,6 @@ module.exports = {
   sizes: require('./sizes'),
   dayLog: require('./dayLog'),
   backup: require('./backup'),
+  inspirations: require('./inspirations'),
+  dayTasks: require('./dayTasks'),
 };

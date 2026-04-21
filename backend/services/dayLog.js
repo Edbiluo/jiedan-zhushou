@@ -1,5 +1,4 @@
 const { getDb } = require('../db');
-const dayjs = require('dayjs');
 
 function report(date, { notes = '' } = {}) {
   const db = getDb();
@@ -18,19 +17,4 @@ function get(date) {
   return getDb().prepare('SELECT * FROM day_log WHERE date = ?').get(date);
 }
 
-function setDailyHours(date, hours) {
-  getDb()
-    .prepare(
-      `INSERT INTO day_work_hours (date, hours) VALUES (?, ?)
-       ON CONFLICT(date) DO UPDATE SET hours = excluded.hours`
-    )
-    .run(date, hours);
-  return { date, hours };
-}
-
-function getDailyHours(date) {
-  const row = getDb().prepare('SELECT hours FROM day_work_hours WHERE date = ?').get(date);
-  return row ? row.hours : null;
-}
-
-module.exports = { report, isReported, get, setDailyHours, getDailyHours };
+module.exports = { report, isReported, get };

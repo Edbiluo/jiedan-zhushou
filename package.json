@@ -1,6 +1,6 @@
 {
   "name": "jiedan-zhushou",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "接单画师助手 - 本地单机版",
   "main": "electron/main.js",
   "private": true,

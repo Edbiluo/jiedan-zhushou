@@ -59,18 +59,6 @@ const styleOption = computed(() => {
   };
 });
 
-const hoursOption = computed(() => {
-  const rows = stats.summary?.avg_page_hours || [];
-  return {
-    title: { text: '单页平均耗时（h）', textStyle: { fontSize: 14, fontFamily: 'LXGW WenKai' } },
-    tooltip: { trigger: 'axis' },
-    grid: { left: 40, right: 20, top: 40, bottom: 30 },
-    xAxis: { type: 'category', data: rows.map((r) => r.month) },
-    yAxis: { type: 'value' },
-    series: [{ type: 'line', smooth: true, data: rows.map((r) => Math.round((r.avg_hours || 0) * 100) / 100), itemStyle: { color: '#E4B77A' } }],
-  };
-});
-
 const avgPrice = computed(() => stats.summary?.average_price?.avg_price || 0);
 const totalBooks = computed(() => stats.summary?.average_price?.count || 0);
 </script>
@@ -78,22 +66,21 @@ const totalBooks = computed(() => stats.summary?.average_price?.count || 0);
 <template>
   <div class="space-y-4">
     <div class="flex items-center gap-3">
-      <label class="text-sm font-hand">从</label>
+      <label class="text-sm">从</label>
       <input v-model="from" type="month" class="input !w-40" />
-      <label class="text-sm font-hand">到</label>
+      <label class="text-sm">到</label>
       <input v-model="to" type="month" class="input !w-40" />
     </div>
 
     <div class="grid grid-cols-2 gap-4">
       <div class="card col-span-2 grid grid-cols-3 text-center gap-4">
-        <div><div class="text-2xl font-hand text-brand-700">{{ totalBooks }}</div><div class="text-xs text-ink-500 font-hand">完成本数</div></div>
-        <div><div class="text-2xl font-hand text-brand-700">¥{{ avgPrice }}</div><div class="text-xs text-ink-500 font-hand">件均价</div></div>
-        <div><div class="text-2xl font-hand text-brand-700">✿</div><div class="text-xs text-ink-500 font-hand">加油画画</div></div>
+        <div><div class="text-2xl text-brand-700">{{ totalBooks }}</div><div class="text-xs text-ink-500">完成本数</div></div>
+        <div><div class="text-2xl text-brand-700">¥{{ avgPrice }}</div><div class="text-xs text-ink-500">件均价</div></div>
+        <div><div class="text-2xl text-brand-700">✿</div><div class="text-xs text-ink-500">加油画画</div></div>
       </div>
       <div class="card"><v-chart :option="incomeOption" autoresize style="height:280px" /></div>
       <div class="card"><v-chart :option="bookCountOption" autoresize style="height:280px" /></div>
-      <div class="card"><v-chart :option="styleOption" autoresize style="height:280px" /></div>
-      <div class="card"><v-chart :option="hoursOption" autoresize style="height:280px" /></div>
+      <div class="card col-span-2"><v-chart :option="styleOption" autoresize style="height:280px" /></div>
     </div>
   </div>
 </template>

@@ -3,6 +3,7 @@ import Calendar from '@/pages/Calendar.vue';
 import Pages from '@/pages/Pages.vue';
 import Books from '@/pages/Books.vue';
 import BookDetail from '@/pages/BookDetail.vue';
+import Inspirations from '@/pages/Inspirations.vue';
 import Stats from '@/pages/Stats.vue';
 import Settings from '@/pages/Settings.vue';
 
@@ -14,6 +15,7 @@ const router = createRouter({
     { path: '/pages', name: 'pages', component: Pages, meta: { title: '画页库' } },
     { path: '/books', name: 'books', component: Books, meta: { title: '本管理' } },
     { path: '/books/:id', name: 'book-detail', component: BookDetail, meta: { title: '本详情' } },
+    { path: '/inspirations', name: 'inspirations', component: Inspirations, meta: { title: '创作中心' } },
     { path: '/stats', name: 'stats', component: Stats, meta: { title: '稿费统计' } },
     { path: '/settings', name: 'settings', component: Settings, meta: { title: '设置' } },
   ],

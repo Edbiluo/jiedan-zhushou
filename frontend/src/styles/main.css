@@ -12,13 +12,19 @@
     background: var(--color-bg);
     color: var(--color-ink-900);
     -webkit-font-smoothing: antialiased;
+    letter-spacing: 0.01em;
   }
   h1, h2, h3, .title {
-    font-family: var(--font-hand);
-    letter-spacing: 0.02em;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: 0;
   }
   ::selection {
     background: var(--color-brand-200);
+  }
+  /* 全局输入控件基础字体 */
+  input, select, textarea, button {
+    font-family: var(--font-sans);
   }
 }
 
@@ -28,13 +34,13 @@
            shadow-soft active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-primary {
-    @apply btn bg-brand-400 text-white hover:bg-brand-500;
+    @apply btn bg-brand-500 text-white hover:bg-brand-600;
   }
   .btn-ghost {
-    @apply btn bg-white/60 text-ink-700 hover:bg-white;
+    @apply btn bg-white/70 text-ink-700 hover:bg-white;
   }
   .btn-danger {
-    @apply btn bg-[#D98B92] text-white hover:brightness-95;
+    @apply btn bg-[#E38E95] text-white hover:brightness-95;
   }
   .card {
     @apply bg-white rounded-xl2 shadow-soft p-5;
@@ -42,10 +48,10 @@
   .chip {
     @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-cream-200 text-ink-700;
   }
-  .chip-brand { @apply chip bg-brand-100 text-brand-700; }
-  .chip-warn  { @apply chip bg-[#FAE6C7] text-[#8A5E26]; }
-  .chip-danger{ @apply chip bg-[#F5CED1] text-[#8A3640]; }
-  .chip-done  { @apply chip bg-[#D9ECDE] text-[#35704A]; }
+  .chip-brand  { @apply chip bg-brand-100 text-brand-700; }
+  .chip-warn   { @apply chip bg-[#FAE6C7] text-[#8A5E26]; }
+  .chip-danger { @apply chip bg-[#F5CED1] text-[#8A3640]; }
+  .chip-done   { @apply chip bg-[#D9ECDE] text-[#35704A]; }
   .input {
     @apply block w-full px-3 py-2 rounded-xl2 border border-ink-100 bg-white focus:outline-none
            focus:border-brand-300 focus:ring-2 focus:ring-brand-100 transition;
@@ -57,13 +63,11 @@
     @apply bg-white/80 shadow-soft;
   }
   .sidebar-item.active {
-    @apply bg-brand-400 text-white shadow-soft;
+    @apply bg-brand-500 text-white shadow-soft;
   }
 }
 
-/* ========== 抽屉动效（丝滑版）========== */
-/* 进入：360ms ease-out-expo，出去：260ms ease-out-quint */
-
+/* ========== 抽屉动效 ========== */
 .drawer-panel-enter-active {
   transition: transform 360ms cubic-bezier(0.16, 1, 0.3, 1), opacity 280ms ease-out;
 }
@@ -102,4 +106,12 @@
   pointer-events: none;
   animation: confetti-fall 2.4s ease-in forwards;
   z-index: 9999;
+}
+
+/* 行数截断 */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

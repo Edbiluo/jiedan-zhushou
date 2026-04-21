@@ -1,5 +1,4 @@
 const { getDb } = require('../db');
-const scheduler = require('../scheduler');
 
 function list(range) {
   if (range && range.start && range.end) {
@@ -13,15 +12,12 @@ function list(range) {
 function create({ date, reason = '' }) {
   const db = getDb();
   db.prepare('INSERT OR IGNORE INTO leave (date, reason) VALUES (?, ?)').run(date, reason);
-  const row = db.prepare('SELECT * FROM leave WHERE date = ?').get(date);
-  scheduler.recomputeForLeaveChange(date);
-  return row;
+  return db.prepare('SELECT * FROM leave WHERE date = ?').get(date);
 }
 
 function remove(date) {
   const db = getDb();
   db.prepare('DELETE FROM leave WHERE date = ?').run(date);
-  scheduler.recomputeForLeaveChange(date);
   return { date };
 }
 

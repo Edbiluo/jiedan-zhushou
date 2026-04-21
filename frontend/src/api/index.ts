@@ -1,5 +1,5 @@
 import { http } from './client';
-import type { Book, DayLog, Leave, Page, Schedule, Settings, Size, StatsSummary, Style } from '@/types';
+import type { Book, CreateBookInput, DayLog, DayTask, DayTaskKind, Inspiration, Leave, Page, Schedule, Settings, Size, StatsSummary, Style } from '@/types';
 
 export const api = {
   settings: {
@@ -33,21 +33,24 @@ export const api = {
   books: {
     list: (status?: string) => http.get<Book[]>(`/books${status ? `?status=${status}` : ''}`),
     get: (id: number) => http.get<Book>(`/books/${id}`),
-    create: (b: { title: string; unit_price: number; deadline: string; page_ids: number[]; note?: string }) =>
-      http.post<Book>('/books', b),
+    create: (b: CreateBookInput & { page_ids?: number[] }) => http.post<Book>('/books', b),
     update: (id: number, b: Partial<Book> & { page_ids?: number[] }) => http.put<Book>(`/books/${id}`, b),
     remove: (id: number) => http.del<{ id: number }>(`/books/${id}`),
     complete: (id: number) => http.post<Book>(`/books/${id}/complete`),
+    setPageNote: (id: number, pageId: number, note: string) =>
+      http.put(`/books/${id}/pages/${pageId}/note`, { note }),
+    reorderPages: (id: number, pageIds: number[]) =>
+      http.put(`/books/${id}/pages/reorder`, { page_ids: pageIds }),
   },
   schedules: {
     byDate: (date: string) => http.get<Schedule[]>(`/schedules/date/${date}`),
     range: (start: string, end: string) => http.get<Schedule[]>(`/schedules/range?start=${start}&end=${end}`),
     byBook: (id: number) => http.get<Schedule[]>(`/schedules/book/${id}`),
-    progress: (id: number, b: { actual_hours?: number; is_done?: boolean; note?: string }) =>
+    progress: (id: number, b: { is_done?: boolean; note?: string }) =>
       http.post<Schedule>(`/schedules/${id}/progress`, b),
     move: (id: number, date: string) => http.post<Schedule>(`/schedules/${id}/move`, { date }),
-    recomputeBook: (id: number) => http.post(`/schedules/recompute/book/${id}`),
-    recomputeAll: () => http.post(`/schedules/recompute/all`),
+    markBookDoneOnDate: (bookId: number, date: string, is_done = true) =>
+      http.post<Schedule>(`/schedules/book/${bookId}/mark-day`, { date, is_done }),
   },
   leaves: {
     list: (q: { start?: string; end?: string } = {}) => {
@@ -60,8 +63,24 @@ export const api = {
   dayLog: {
     get: (date: string) => http.get<DayLog | null>(`/day-log/${date}`),
     report: (date: string, b: { notes?: string } = {}) => http.post<DayLog>(`/day-log/${date}`, b),
-    getHours: (date: string) => http.get<{ date: string; hours: number | null }>(`/day-hours/${date}`),
-    setHours: (date: string, hours: number) => http.put(`/day-hours/${date}`, { hours }),
+  },
+  dayTasks: {
+    byDate: (date: string) => http.get<DayTask[]>(`/day-tasks/date/${date}`),
+    range: (start: string, end: string) => http.get<DayTask[]>(`/day-tasks/range?start=${start}&end=${end}`),
+    create: (b: { date: string; kind: DayTaskKind; title?: string; inspiration_id?: number | null; note?: string }) =>
+      http.post<DayTask>('/day-tasks', b),
+    update: (id: number, b: Partial<DayTask>) => http.put<DayTask>(`/day-tasks/${id}`, b),
+    remove: (id: number) => http.del<{ id: number }>(`/day-tasks/${id}`),
+  },
+  inspirations: {
+    list: (keyword?: string) => {
+      const q = keyword ? `?keyword=${encodeURIComponent(keyword)}` : '';
+      return http.get<Inspiration[]>(`/inspirations${q}`);
+    },
+    get: (id: number) => http.get<Inspiration>(`/inspirations/${id}`),
+    create: (b: { src_path: string; note?: string }) => http.post<Inspiration>('/inspirations', b),
+    update: (id: number, b: { note?: string }) => http.put<Inspiration>(`/inspirations/${id}`, b),
+    remove: (id: number) => http.del<{ id: number }>(`/inspirations/${id}`),
   },
   stats: {
     summary: (from: string, to: string) => http.get<StatsSummary>(`/stats/summary?from=${from}&to=${to}`),

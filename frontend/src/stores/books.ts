@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { api } from '@/api';
-import type { Book } from '@/types';
+import type { Book, CreateBookInput } from '@/types';
 
 export const useBooksStore = defineStore('books', {
   state: () => ({
@@ -15,7 +15,7 @@ export const useBooksStore = defineStore('books', {
       this.current = await api.books.get(id);
       return this.current;
     },
-    async create(b: { title: string; unit_price: number; deadline: string; page_ids: number[]; note?: string }) {
+    async create(b: CreateBookInput & { page_ids?: number[] }) {
       const book = await api.books.create(b);
       await this.reload();
       return book;

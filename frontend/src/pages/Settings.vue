@@ -11,10 +11,6 @@ onMounted(async () => {
   if (!settings.loaded) await settings.load();
 });
 
-async function updateDefaultHours(v: string) {
-  await settings.update({ default_daily_hours: v });
-  toast('默认工时已保存');
-}
 async function updateReminder(v: string) {
   await settings.update({ reminder_time: v });
   toast('提醒时间已保存');
@@ -56,31 +52,22 @@ function toast(m: string) { message.value = m; setTimeout(() => (message.value =
 <template>
   <div class="space-y-4 max-w-3xl">
     <div class="card">
-      <h3 class="font-hand text-lg text-brand-700 mb-3">工作节奏</h3>
-      <div class="grid grid-cols-2 gap-4">
+      <h3 class="text-lg text-brand-700 mb-3">提醒</h3>
+      <div class="grid grid-cols-2 gap-4 mb-3">
         <div>
-          <label class="text-xs text-ink-500 font-hand">默认每日工时 (h)</label>
-          <input type="number" min="0.5" step="0.5" :value="settings.settings.default_daily_hours"
-                 class="input" @change="updateDefaultHours(($event.target as HTMLInputElement).value)" />
-        </div>
-        <div>
-          <label class="text-xs text-ink-500 font-hand">"快到交付"阈值 (天)</label>
+          <label class="text-xs text-ink-500">"快到交付"阈值 (天)</label>
           <input type="number" min="1" :value="settings.settings.near_deadline_days"
                  class="input" @change="updateNearDeadline(($event.target as HTMLInputElement).value)" />
         </div>
       </div>
-    </div>
-
-    <div class="card">
-      <h3 class="font-hand text-lg text-brand-700 mb-3">提醒</h3>
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="text-xs text-ink-500 font-hand">每日提醒时间</label>
+          <label class="text-xs text-ink-500">每日提醒时间</label>
           <input type="time" :value="settings.settings.reminder_time"
                  class="input" @change="updateReminder(($event.target as HTMLInputElement).value)" />
         </div>
         <div class="flex items-end">
-          <label class="text-sm font-hand flex items-center gap-2">
+          <label class="text-sm flex items-center gap-2">
             <input type="checkbox" :checked="settings.settings.notification_enabled === '1'"
                    @change="updateNotification(($event.target as HTMLInputElement).checked)" />
             启用桌面通知
@@ -90,7 +77,7 @@ function toast(m: string) { message.value = m; setTimeout(() => (message.value =
     </div>
 
     <div class="card">
-      <h3 class="font-hand text-lg text-brand-700 mb-3">款式管理</h3>
+      <h3 class="text-lg text-brand-700 mb-3">款式管理</h3>
       <div class="flex flex-wrap gap-2 mb-3">
         <span v-for="s in settings.styles" :key="s.id" class="chip-brand group">
           {{ s.name }}{{ s.is_preset ? '·预置' : '' }}
@@ -99,12 +86,12 @@ function toast(m: string) { message.value = m; setTimeout(() => (message.value =
       </div>
       <div class="flex gap-2">
         <input v-model="newStyle" class="input flex-1" placeholder="新款式名称" @keyup.enter="addStyle" />
-        <button class="btn-primary font-hand" @click="addStyle">添加</button>
+        <button class="btn-primary" @click="addStyle">添加</button>
       </div>
     </div>
 
     <div class="card">
-      <h3 class="font-hand text-lg text-brand-700 mb-3">尺寸管理</h3>
+      <h3 class="text-lg text-brand-700 mb-3">尺寸管理</h3>
       <div class="flex flex-wrap gap-2 mb-3">
         <span v-for="s in settings.sizes" :key="s.id" class="chip-brand group">
           {{ s.name }}{{ s.is_preset ? '·预置' : '' }}
@@ -113,22 +100,22 @@ function toast(m: string) { message.value = m; setTimeout(() => (message.value =
       </div>
       <div class="flex gap-2">
         <input v-model="newSize" class="input flex-1" placeholder="新尺寸名称" @keyup.enter="addSize" />
-        <button class="btn-primary font-hand" @click="addSize">添加</button>
+        <button class="btn-primary" @click="addSize">添加</button>
       </div>
     </div>
 
     <div class="card">
-      <h3 class="font-hand text-lg text-brand-700 mb-3">备份 & 恢复</h3>
+      <h3 class="text-lg text-brand-700 mb-3">备份 & 恢复</h3>
       <div class="flex gap-2">
-        <button class="btn-ghost font-hand" @click="exportBackup">📦 导出备份 (.zip)</button>
-        <button class="btn-ghost font-hand" @click="importBackup">📥 从备份恢复</button>
+        <button class="btn-ghost" @click="exportBackup">📦 导出备份 (.zip)</button>
+        <button class="btn-ghost" @click="importBackup">📥 从备份恢复</button>
       </div>
-      <p class="text-xs text-ink-500 mt-2 font-hand">备份包含画页图片 + 数据库。恢复会覆盖现有数据。</p>
+      <p class="text-xs text-ink-500 mt-2">备份包含画页图片 + 数据库。恢复会覆盖现有数据。</p>
     </div>
 
     <Teleport to="body">
       <div v-if="message" class="fixed bottom-6 right-6 card !py-2 !px-4 animate-pop z-50">
-        <span class="font-hand text-sm text-brand-700">{{ message }}</span>
+        <span class="text-sm text-brand-700">{{ message }}</span>
       </div>
     </Teleport>
   </div>

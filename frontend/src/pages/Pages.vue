@@ -49,18 +49,18 @@ const coverFilter = computed({
         <option :value="undefined">全部尺寸</option>
         <option v-for="s in settings.sizes" :key="s.id" :value="s.id">{{ s.name }}</option>
       </select>
-      <label class="text-sm font-hand flex items-center gap-1">
+      <label class="text-sm flex items-center gap-1">
         <input type="checkbox" :checked="coverFilter === true" @change="($event.target as HTMLInputElement).checked ? coverFilter = true : coverFilter = undefined" />
         只看封页
       </label>
       <input v-model="pages.filter.keyword" placeholder="搜索标题..." class="input !w-48" @keyup.enter="pages.reload()" />
-      <button class="btn-primary font-hand ml-auto" @click="openUpload">
+      <button class="btn-primary ml-auto" @click="openUpload">
         ＋ 上传画页
       </button>
     </div>
 
-    <div v-if="pages.loading" class="text-center py-10 text-ink-500 font-hand">加载中...</div>
-    <div v-else-if="!pages.list.length" class="text-center py-20 text-ink-500 font-hand">
+    <div v-if="pages.loading" class="text-center py-10 text-ink-500">加载中...</div>
+    <div v-else-if="!pages.list.length" class="text-center py-20 text-ink-500">
       还没有画页，点上面按钮上传一张试试吧 ✿
     </div>
     <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">

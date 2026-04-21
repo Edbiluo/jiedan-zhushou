@@ -1,41 +1,49 @@
 :root {
-  /* 主题：奶油蓝 */
-  --color-bg: #FFFBF3;
-  --color-bg-soft: #FBF3E1;
+  /* 主题：清新青蓝（v2） */
+  --color-bg: #F7FAFB;
+  --color-bg-soft: #EEF4F6;
   --color-surface: #FFFFFF;
-  --color-surface-alt: #F6F1E4;
+  --color-surface-alt: #F2F6F8;
 
-  --color-brand-50: #F2F7FD;
-  --color-brand-100: #DEEAF8;
-  --color-brand-200: #BED6F1;
-  --color-brand-300: #9CC1EA;
-  --color-brand-400: #8FB8E8;
-  --color-brand-500: #6EA1DF;
-  --color-brand-600: #5286C4;
-  --color-brand-700: #3E6EA6;
+  /* 主色：更清新的青蓝（mint-blue） */
+  --color-brand-50:  #EEF7F8;
+  --color-brand-100: #D7ECEE;
+  --color-brand-200: #B5DCE0;
+  --color-brand-300: #8DC6CC;
+  --color-brand-400: #69B2BA;
+  --color-brand-500: #4C9BA4;
+  --color-brand-600: #3A848C;
+  --color-brand-700: #2A6A72;
 
-  --color-ink-900: #2C3440;
-  --color-ink-700: #4F5968;
-  --color-ink-500: #7C8594;
-  --color-ink-300: #B4BBC6;
-  --color-ink-100: #E5E8EE;
+  /* 文本灰阶 —— 微调更柔和 */
+  --color-ink-900: #26323F;
+  --color-ink-700: #4A5463;
+  --color-ink-500: #7A8493;
+  --color-ink-300: #B8BFCB;
+  --color-ink-100: #E5E9EE;
 
-  --color-success: #8FBE9E;
-  --color-warning: #E4B77A;
-  --color-danger: #D98B92;
-  --color-info: #8FB8E8;
+  /* 语义色 */
+  --color-success: #7FC0A0;
+  --color-warning: #E9BE7B;
+  --color-danger:  #E38E95;
+  --color-info:    #8FC4D0;
 
+  /* 圆角 —— 统一柔和 */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-xl: 22px;
 
-  --shadow-soft: 0 6px 24px -8px rgba(78, 118, 170, 0.18);
-  --shadow-pop: 0 10px 30px -10px rgba(78, 118, 170, 0.35);
+  /* 阴影 —— 更轻盈 */
+  --shadow-soft: 0 4px 18px -6px rgba(60, 130, 140, 0.14);
+  --shadow-pop:  0 10px 30px -12px rgba(60, 130, 140, 0.28);
 
-  --font-hand: 'LXGW WenKai', 'Kose Font', '站酷快乐体', cursive;
-  --font-sans: 'HarmonyOS Sans', 'Source Han Sans CN', 'PingFang SC', system-ui, sans-serif;
+  /* 字体 —— 主体换 Microsoft YaHei */
+  --font-sans: 'Microsoft YaHei', 'PingFang SC', 'Source Han Sans CN', 'HarmonyOS Sans', system-ui, sans-serif;
+  --font-hand: 'LXGW WenKai', 'Microsoft YaHei', cursive;
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, 'Microsoft YaHei', monospace;
 
+  /* 间距 */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;

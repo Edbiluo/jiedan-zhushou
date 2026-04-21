@@ -10,10 +10,10 @@ export const useSettingsStore = defineStore('settings', {
     loaded: false,
   }),
   getters: {
-    defaultDailyHours: (s) => parseFloat(s.settings.default_daily_hours || '8'),
     nearDeadlineDays: (s) => parseInt(s.settings.near_deadline_days || '3', 10),
     reminderTime: (s) => s.settings.reminder_time || '22:00',
     theme: (s) => s.settings.theme || 'cream-blue',
+    raw: (s) => s.settings,
   },
   actions: {
     async load() {

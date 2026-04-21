@@ -42,6 +42,32 @@ async function saveImageFromPath(srcPath) {
   };
 }
 
+async function saveImageFromBytes(buffer, extHint) {
+  let ext = (extHint || '.png').toLowerCase();
+  if (!ext.startsWith('.')) ext = '.' + ext;
+  // 非常见扩展名兜底到 .png
+  if (!/^\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(ext)) ext = '.png';
+
+  const id = uuidv4();
+  const originalName = `${id}${ext}`;
+  const thumbName = `${id}.jpg`;
+  const originalDest = path.join(imageDir('original'), originalName);
+  const thumbDest = path.join(imageDir('thumb'), thumbName);
+
+  fs.writeFileSync(originalDest, buffer);
+
+  if (sharp) {
+    await sharp(buffer).resize({ width: 480, withoutEnlargement: true }).jpeg({ quality: 80 }).toFile(thumbDest);
+  } else {
+    fs.writeFileSync(thumbDest, buffer);
+  }
+
+  return {
+    image_path: path.join('original', originalName).replace(/\\/g, '/'),
+    thumb_path: path.join('thumb', thumbName).replace(/\\/g, '/'),
+  };
+}
+
 function list({ style_id, size_id, is_cover, keyword } = {}) {
   const conds = [];
   const params = {};
@@ -59,9 +85,17 @@ function getById(id) {
   return getDb().prepare('SELECT * FROM page WHERE id = ?').get(id);
 }
 
-async function create({ title, src_path, style_id, size_id, is_cover, estimated_hours, note }) {
-  if (!src_path) throw new Error('src_path required');
-  const { image_path, thumb_path } = await saveImageFromPath(src_path);
+async function create({ title, src_path, content_base64, ext, style_id, size_id, is_cover, estimated_hours, note }) {
+  let image_path, thumb_path;
+  if (content_base64) {
+    const buffer = Buffer.from(content_base64, 'base64');
+    if (!buffer || !buffer.length) throw new Error('empty content');
+    ({ image_path, thumb_path } = await saveImageFromBytes(buffer, ext));
+  } else if (src_path) {
+    ({ image_path, thumb_path } = await saveImageFromPath(src_path));
+  } else {
+    throw new Error('src_path or content_base64 required');
+  }
   const info = getDb()
     .prepare(
       `INSERT INTO page (title, image_path, thumb_path, style_id, size_id, is_cover, estimated_hours, note)
@@ -112,4 +146,4 @@ function remove(id) {
   return { id };
 }
 
-module.exports = { list, getById, create, update, remove, saveImageFromPath };
+module.exports = { list, getById, create, update, remove, saveImageFromPath, saveImageFromBytes };

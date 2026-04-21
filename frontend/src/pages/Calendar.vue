@@ -1,192 +1,243 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import dayjs from 'dayjs';
+import { computed, onMounted, ref, watch } from 'vue';
+import dayjs, { Dayjs } from 'dayjs';
+import { useRouter } from 'vue-router';
+import { api } from '@/api';
 import { useScheduleStore } from '@/stores/schedule';
 import { useSettingsStore } from '@/stores/settings';
-import { usePagesStore } from '@/stores/pages';
-import { api } from '@/api';
-import type { Page, Schedule } from '@/types';
-import PageEditModal from '@/components/PageEditModal.vue';
+import { useDayTasksStore } from '@/stores/dayTasks';
+import { useInspirationsStore } from '@/stores/inspirations';
+import type { Book, DayTask, DayTaskKind, Inspiration, Schedule } from '@/types';
+import { bookGradient, bookSolid, bookInk, TASK_PALETTE } from '@/utils/palette';
 
 const schedule = useScheduleStore();
 const settings = useSettingsStore();
-const pages = usePagesStore();
+const dayTasks = useDayTasksStore();
+const inspirations = useInspirationsStore();
+const router = useRouter();
 
 const cursor = ref(dayjs());
-const selectedDate = ref<string | null>(null);
+const books = ref<Book[]>([]);
+const schedulesByBookDate = ref<Map<string, Schedule>>(new Map());
 
 const monthStart = computed(() => cursor.value.startOf('month'));
-const gridStart = computed(() => monthStart.value.startOf('week').add(1, 'day')); // 周一开始
+const gridStart = computed(() => monthStart.value.startOf('week').add(1, 'day'));
 const gridEnd = computed(() => cursor.value.endOf('month').endOf('week').add(1, 'day'));
 
 const todayStr = dayjs().format('YYYY-MM-DD');
 
-const days = computed(() => {
-  const out: { date: string; inMonth: boolean; leave: boolean; items: Schedule[]; todayTotal: number }[] = [];
+const weeks = computed(() => {
+  const out: { start: Dayjs; days: { date: string; inMonth: boolean; dayNum: number; weekday: number }[] }[] = [];
   let d = gridStart.value;
   while (d.isBefore(gridEnd.value)) {
-    const key = d.format('YYYY-MM-DD');
-    const items = schedule.byDate[key] || [];
-    out.push({
-      date: key,
-      inMonth: d.month() === cursor.value.month(),
-      leave: schedule.isLeave(key),
-      items,
-      todayTotal: items.reduce((s, i) => s + (i.planned_hours || 0), 0),
-    });
-    d = d.add(1, 'day');
+    const row = { start: d, days: [] as any[] };
+    for (let i = 0; i < 7; i++) {
+      const cur = d.add(i, 'day');
+      row.days.push({
+        date: cur.format('YYYY-MM-DD'),
+        inMonth: cur.month() === cursor.value.month(),
+        dayNum: cur.date(),
+        weekday: i,
+      });
+    }
+    out.push(row);
+    d = d.add(7, 'day');
   }
   return out;
 });
 
-const detailItems = computed<Schedule[]>(() => {
-  if (!selectedDate.value) return [];
-  return schedule.byDate[selectedDate.value] || [];
-});
-
-const detailTotal = computed(() => detailItems.value.reduce((s, i) => s + (i.planned_hours || 0), 0));
-const detailIsLeave = computed(() => !!selectedDate.value && schedule.isLeave(selectedDate.value));
-const detailIsToday = computed(() => selectedDate.value === todayStr);
-
 async function refresh() {
   const start = gridStart.value.format('YYYY-MM-DD');
   const end = gridEnd.value.subtract(1, 'day').format('YYYY-MM-DD');
-  await schedule.loadRange(start, end);
+  const [bookList, schedList] = await Promise.all([
+    api.books.list(),
+    api.schedules.range(start, end),
+  ]);
+  books.value = bookList;
+  const m = new Map<string, Schedule>();
+  for (const s of schedList) m.set(`${s.book_id}:${s.date}:${s.segment_kind}`, s);
+  schedulesByBookDate.value = m;
+  await Promise.all([
+    schedule.loadRange(start, end),
+    dayTasks.loadRange(start, end),
+  ]);
 }
 
-function prev() { cursor.value = cursor.value.subtract(1, 'month'); selectedDate.value = null; }
-function next() { cursor.value = cursor.value.add(1, 'month'); selectedDate.value = null; }
-async function jumpToday() {
-  cursor.value = dayjs();
-  await nextTick();
-  await selectDay(todayStr);
-}
-
-watch(cursor, refresh);
 onMounted(async () => {
   if (!settings.loaded) await settings.load();
   await refresh();
-  // 画页编辑需要 pages.list 里有目标，预加载一次
-  if (!pages.list.length) pages.reload().catch(() => {});
 });
+watch(cursor, refresh);
 
-// ============ 抽屉：选中日期的完整工作流 ============
-const dayNote = ref('');
-const dayHoursInput = ref<number | null>(null);
-const loadingDetail = ref(false);
-const dayNoteSaving = ref(false);
-const dayHoursSaving = ref(false);
+function prev() { cursor.value = cursor.value.subtract(1, 'month'); }
+function next() { cursor.value = cursor.value.add(1, 'month'); }
+function jumpToday() { cursor.value = dayjs(); selectDay(todayStr); }
 
-async function selectDay(date: string) {
-  selectedDate.value = date;
-  loadingDetail.value = true;
-  try {
-    const [, hoursRes, logRes] = await Promise.all([
-      schedule.loadDay(date),
-      api.dayLog.getHours(date).catch(() => ({ hours: null })),
-      api.dayLog.get(date).catch(() => null),
-    ]);
-    dayHoursInput.value = hoursRes?.hours ?? null;
-    dayNote.value = (logRes as any)?.notes ?? '';
-  } finally {
-    loadingDetail.value = false;
+// ============ 条带布局 ============
+interface Bar { book: Book; weekIdx: number; colStart: number; colEnd: number; lane: number; isStart: boolean; isEnd: boolean; completed: boolean; }
+interface VideoBlock { book: Book; weekIdx: number; col: number; is_done: boolean; }
+
+function computeBars() {
+  const bars: Bar[][] = weeks.value.map(() => []);
+  const videos: VideoBlock[][] = weeks.value.map(() => []);
+  const laneCount: number[] = weeks.value.map(() => 0);
+  const sortedBooks = [...books.value]
+    .filter((b) => b.start_date && b.deadline)
+    .sort((a, b) => {
+      const sa = a.start_date || '';
+      const sb = b.start_date || '';
+      if (sa !== sb) return sa < sb ? -1 : 1;
+      return a.id - b.id;
+    });
+
+  weeks.value.forEach((w, wi) => {
+    const weekStart = w.start;
+    const weekEnd = w.start.add(6, 'day');
+    const lanes: string[] = [];
+    const weekBars: Bar[] = [];
+    for (const b of sortedBooks) {
+      const bs = dayjs(b.start_date!);
+      const be = dayjs(b.deadline);
+      if (be.isBefore(weekStart) || bs.isAfter(weekEnd)) continue;
+      const segStart = bs.isBefore(weekStart) ? weekStart : bs;
+      const segEnd = be.isAfter(weekEnd) ? weekEnd : be;
+      const col0 = segStart.diff(weekStart, 'day');
+      const col1 = segEnd.diff(weekStart, 'day');
+      let lane = -1;
+      for (let i = 0; i < lanes.length; i++) {
+        if (!lanes[i] || lanes[i] < segStart.format('YYYY-MM-DD')) { lane = i; break; }
+      }
+      if (lane < 0) { lane = lanes.length; lanes.push(''); }
+      lanes[lane] = segEnd.format('YYYY-MM-DD');
+      const doneOn = (d: string) => !!schedulesByBookDate.value.get(`${b.id}:${d}:book`)?.is_done;
+      let allDone = true;
+      let cur = segStart;
+      while (cur.isBefore(segEnd) || cur.isSame(segEnd, 'day')) {
+        if (!doneOn(cur.format('YYYY-MM-DD'))) { allDone = false; break; }
+        cur = cur.add(1, 'day');
+      }
+      weekBars.push({
+        book: b, weekIdx: wi,
+        colStart: col0, colEnd: col1, lane,
+        isStart: !bs.isBefore(weekStart),
+        isEnd: !be.isAfter(weekEnd),
+        completed: allDone || b.status === 'completed',
+      });
+    }
+    laneCount[wi] = lanes.length;
+    bars[wi] = weekBars;
+
+    for (const b of sortedBooks) {
+      if (!b.has_video) continue;
+      const vDate = dayjs(b.deadline).add(1, 'day');
+      if (vDate.isBefore(weekStart) || vDate.isAfter(weekEnd)) continue;
+      const col = vDate.diff(weekStart, 'day');
+      const s = schedulesByBookDate.value.get(`${b.id}:${vDate.format('YYYY-MM-DD')}:video`);
+      videos[wi].push({ book: b, weekIdx: wi, col, is_done: !!s?.is_done });
+    }
+  });
+
+  return { bars, videos, laneCount };
+}
+
+const layout = computed(() => computeBars());
+
+function bookDoneOnDate(bookId: number, date: string) {
+  return !!schedulesByBookDate.value.get(`${bookId}:${date}:book`)?.is_done;
+}
+
+function booksOnDate(date: string): { book: Book; kind: 'book' | 'video'; is_done: boolean }[] {
+  const out: { book: Book; kind: 'book' | 'video'; is_done: boolean }[] = [];
+  for (const b of books.value) {
+    if (!b.start_date) continue;
+    if (date >= b.start_date && date <= b.deadline) {
+      out.push({ book: b, kind: 'book', is_done: bookDoneOnDate(b.id, date) });
+    }
+    if (b.has_video && dayjs(b.deadline).add(1, 'day').format('YYYY-MM-DD') === date) {
+      const s = schedulesByBookDate.value.get(`${b.id}:${date}:video`);
+      out.push({ book: b, kind: 'video', is_done: !!s?.is_done });
+    }
   }
+  return out;
 }
 
-function closeDrawer() {
-  selectedDate.value = null;
+async function toggleBookDoneOnDate(bookId: number, date: string) {
+  if (date > todayStr) return;
+  const current = bookDoneOnDate(bookId, date);
+  await api.schedules.markBookDoneOnDate(bookId, date, !current);
+  await refresh();
 }
 
-async function toggleLeaveOnDay() {
-  if (!selectedDate.value) return;
-  const date = selectedDate.value;
+async function toggleVideoDone(bookId: number, date: string) {
+  if (date > todayStr) return;
+  const s = schedulesByBookDate.value.get(`${bookId}:${date}:video`);
+  if (!s) return;
+  await api.schedules.progress(s.id, { is_done: !s.is_done });
+  await refresh();
+}
+
+async function toggleLeaveForCell(date: string) {
   if (schedule.isLeave(date)) await schedule.cancelLeave(date);
   else await schedule.requestLeave(date, '');
   await refresh();
-  await schedule.loadDay(date);
 }
 
-async function toggleLeaveForCell(day: { date: string; leave: boolean }) {
-  if (day.leave) await schedule.cancelLeave(day.date);
-  else await schedule.requestLeave(day.date, '');
-  await refresh();
-  if (selectedDate.value === day.date) await schedule.loadDay(day.date);
+function openBook(book: Book) { router.push(`/books/${book.id}`); }
+
+function barStyle(bar: Bar) {
+  return {
+    background: bookGradient(bar.book.id),
+    color: bookInk(bar.book.id),
+    opacity: bar.completed ? 0.5 : 1,
+    borderTopLeftRadius: bar.isStart ? '9999px' : '3px',
+    borderBottomLeftRadius: bar.isStart ? '9999px' : '3px',
+    borderTopRightRadius: bar.isEnd ? '9999px' : '3px',
+    borderBottomRightRadius: bar.isEnd ? '9999px' : '3px',
+  };
+}
+function videoStyle(v: VideoBlock) {
+  return { background: bookSolid(v.book.id), color: bookInk(v.book.id), opacity: v.is_done ? 0.5 : 1 };
 }
 
-async function toggleDone(it: Schedule) {
-  const wasDone = !!it.is_done;
-  const nextDone = !wasDone;
-  await api.schedules.progress(it.id, {
-    is_done: nextDone,
-    actual_hours: it.actual_hours ?? it.planned_hours,
-  });
-  // 从"已完成"翻悔为"未完成"，且该画页日期已到（今天或过去）→ 需要重排把这部分工时挪走
-  const needsRecompute = wasDone && !nextDone && it.date <= todayStr;
-  if (needsRecompute) {
-    await schedule.recomputeAll();
-  }
-  await refresh();
-  if (selectedDate.value) await schedule.loadDay(selectedDate.value);
+// 间隙常量（日与日之间）
+const CELL_GAP = 8;   // px
+const DAY_HEADER_H = 30;
+const LANE_H = 22;
+const LANE_GAP = 4;
+
+// 条带位置计算：容器宽度按"7列等宽 + 6 个 gap"切分
+// left = colStart * (cellW + gap)，width = (colEnd-colStart+1) * cellW + (colEnd-colStart) * gap
+// 用 calc 把百分比 cellW 与 px gap 混合
+function colLeft(colStart: number) {
+  // colStart * (cellW + gap) = colStart * cellW + colStart * gap
+  // cellW = (100% - 6*gap) / 7
+  return `calc(${colStart} * ((100% - ${6 * CELL_GAP}px) / 7) + ${colStart * CELL_GAP}px)`;
+}
+function colWidth(span: number) {
+  // span * cellW + (span-1) * gap
+  return `calc(${span} * ((100% - ${6 * CELL_GAP}px) / 7) + ${(span - 1) * CELL_GAP}px)`;
 }
 
-// 抽屉内『一键标今日完成』
-const markingAllDone = ref(false);
-const canMarkAllDone = computed(() => {
-  if (!selectedDate.value) return false;
-  // 只允许今天或过去
-  if (selectedDate.value > todayStr) return false;
-  // 休息日不显示
-  if (detailIsLeave.value) return false;
-  // 有未完成 schedule 才显示
-  return detailItems.value.some((s) => !s.is_done);
-});
 
-async function markAllDoneForSelected() {
-  if (!selectedDate.value) return;
-  markingAllDone.value = true;
+// ============ 日抽屉 ============
+const selectedDate = ref<string | null>(null);
+const dayNote = ref('');
+const dayNoteSaving = ref(false);
+
+async function selectDay(date: string) {
+  selectedDate.value = date;
+  await Promise.all([
+    dayTasks.loadDay(date),
+    loadDayNote(date),
+  ]);
+}
+function closeDrawer() { selectedDate.value = null; }
+
+async function loadDayNote(date: string) {
   try {
-    await schedule.markAllDoneForDate(selectedDate.value);
-    // 顺手写一条当日笔记（若没填就放个默认）
-    await api.dayLog.report(selectedDate.value, {
-      notes: dayNote.value || '(按计划完成)',
-    });
-    // 不触发 recompute：已完成的画页不需要重排
-    await refresh();
-  } finally {
-    markingAllDone.value = false;
-  }
-}
-
-async function saveActualHours(it: Schedule, val: number) {
-  if (Number.isNaN(val) || val < 0) return;
-  await api.schedules.progress(it.id, { actual_hours: val });
-  if (selectedDate.value) await schedule.loadDay(selectedDate.value);
-}
-
-async function moveItem(it: Schedule, delta: number) {
-  const newDate = dayjs(it.date).add(delta, 'day').format('YYYY-MM-DD');
-  await api.schedules.move(it.id, newDate);
-  await refresh();
-  if (selectedDate.value) await schedule.loadDay(selectedDate.value);
-}
-
-async function moveItemTo(it: Schedule, newDate: string) {
-  if (!newDate || newDate === it.date) return;
-  await api.schedules.move(it.id, newDate);
-  await refresh();
-  if (selectedDate.value) await schedule.loadDay(selectedDate.value);
-}
-
-async function saveDayHours() {
-  if (!selectedDate.value) return;
-  const v = dayHoursInput.value;
-  if (v == null || Number.isNaN(v) || v < 0) return;
-  dayHoursSaving.value = true;
-  try {
-    await api.dayLog.setHours(selectedDate.value, v);
-    await refresh();
-    if (selectedDate.value) await schedule.loadDay(selectedDate.value);
-  } finally { dayHoursSaving.value = false; }
+    const log: any = await api.dayLog.get(date);
+    dayNote.value = log?.notes || '';
+  } catch { dayNote.value = ''; }
 }
 
 async function saveDayNote() {
@@ -197,280 +248,375 @@ async function saveDayNote() {
   } finally { dayNoteSaving.value = false; }
 }
 
-// ============ 画页编辑弹窗 ============
-const pageModalOpen = ref(false);
-const pageEditTarget = ref<Page | null>(null);
+const dayBooks = computed(() => selectedDate.value ? booksOnDate(selectedDate.value) : []);
+const dayCreations = computed(() =>
+  selectedDate.value ? (dayTasks.byDate[selectedDate.value] || []).filter((t) => t.kind === 'creation') : []
+);
+const dayEditings = computed(() =>
+  selectedDate.value ? (dayTasks.byDate[selectedDate.value] || []).filter((t) => t.kind === 'editing') : []
+);
+const selectedIsLeave = computed(() => !!selectedDate.value && schedule.isLeave(selectedDate.value));
+const selectedIsPastOrToday = computed(() => !!selectedDate.value && selectedDate.value <= todayStr);
 
-async function openPageEdit(it: Schedule) {
-  // Schedule 只带 page_id，需要从 pages store 拿完整数据
-  let target = pages.list.find((p) => p.id === it.page_id) || null;
-  if (!target) {
-    try {
-      target = await api.pages.get(it.page_id);
-    } catch {
-      target = null;
+async function addTask(kind: DayTaskKind) {
+  if (!selectedDate.value) return;
+  await dayTasks.create({ date: selectedDate.value, kind, title: kind === 'creation' ? '新创作' : '新剪辑' });
+  await dayTasks.loadDay(selectedDate.value);
+}
+
+async function updateTaskField(t: DayTask, patch: Partial<DayTask>) {
+  await dayTasks.update(t.id, { ...patch });
+  if (selectedDate.value) await dayTasks.loadDay(selectedDate.value);
+}
+
+async function toggleTaskDone(t: DayTask) {
+  await updateTaskField(t, { is_done: t.is_done ? 0 : 1 });
+}
+
+async function removeTask(t: DayTask) {
+  if (!confirm('删除这条？')) return;
+  await dayTasks.remove(t.id, t.date);
+}
+
+// 从灵感库挑图
+const inspirationPickerFor = ref<DayTask | null>(null);
+async function openInspirationPicker(t: DayTask) {
+  if (!inspirations.list.length) await inspirations.reload();
+  inspirationPickerFor.value = t;
+}
+async function pickInspiration(ins: Inspiration | null) {
+  if (!inspirationPickerFor.value) return;
+  await updateTaskField(inspirationPickerFor.value, { inspiration_id: ins?.id ?? null });
+  inspirationPickerFor.value = null;
+}
+
+function taskChipStyle(kind: DayTaskKind, is_done: boolean) {
+  const p = TASK_PALETTE[kind];
+  return {
+    background: p.light,
+    color: p.ink,
+    opacity: is_done ? 0.55 : 1,
+    textDecoration: is_done ? 'line-through' : 'none',
+  };
+}
+
+function taskCellStyle(kind: DayTaskKind) {
+  const p = TASK_PALETTE[kind];
+  return { background: `linear-gradient(90deg, ${p.light} 0%, ${p.dark} 100%)`, color: p.ink };
+}
+
+async function markAllBooksDoneToday() {
+  if (!selectedDate.value) return;
+  for (const it of dayBooks.value) {
+    if (it.kind === 'book' && !it.is_done) {
+      await api.schedules.markBookDoneOnDate(it.book.id, selectedDate.value);
+    } else if (it.kind === 'video' && !it.is_done) {
+      const s = schedulesByBookDate.value.get(`${it.book.id}:${selectedDate.value}:video`);
+      if (s) await api.schedules.progress(s.id, { is_done: true });
     }
   }
-  if (!target) return;
-  pageEditTarget.value = target;
-  pageModalOpen.value = true;
-}
-
-async function onPageSaved() {
-  // 画页信息变了（比如 estimated_hours / 款式），刷新当前日排期展示
-  if (selectedDate.value) await schedule.loadDay(selectedDate.value);
   await refresh();
 }
-
-// ============ 色块：按 book_status 着色 ============
-function chipClass(it: Schedule) {
-  if (it.is_done) return 'bg-[#D9ECDE] text-[#35704A] line-through';
-  switch (it.book_status) {
-    case 'overdue': return 'bg-[#F5CED1] text-[#8A3640]';
-    case 'near_deadline': return 'bg-[#FAE6C7] text-[#8A5E26]';
-    case 'completed': return 'bg-[#D9ECDE] text-[#35704A]';
-    default: return 'bg-brand-100 text-brand-700';
-  }
-}
-
-function statusLabel(st?: string) {
-  switch (st) {
-    case 'overdue': return '延期';
-    case 'near_deadline': return '快到交付';
-    case 'completed': return '已完成';
-    default: return '进行中';
-  }
-}
-
-// 每格子最多展示几条（多余折叠为 "+N 项"）
-const MAX_CELL_ITEMS = 2;
 </script>
 
 <template>
   <div class="h-full flex flex-col gap-3 min-h-0">
     <!-- 顶部工具条 -->
     <div class="flex items-center gap-3 flex-wrap shrink-0">
-      <button class="btn-ghost font-hand" @click="prev">‹ 上月</button>
-      <div class="text-xl font-hand text-brand-700">{{ cursor.format('YYYY 年 M 月') }}</div>
-      <button class="btn-ghost font-hand" @click="next">下月 ›</button>
-      <button class="btn-ghost font-hand" @click="jumpToday">今天</button>
-      <div class="ml-auto text-xs text-ink-500 font-hand">默认每日 {{ settings.defaultDailyHours }}h · 点日期打开详情</div>
-    </div>
-
-    <!-- 图例 -->
-    <div class="flex items-center gap-2 text-[11px] font-hand text-ink-500 flex-wrap shrink-0">
-      <span class="chip-brand">进行中</span>
-      <span class="chip-warn">快到交付</span>
-      <span class="chip-danger">延期</span>
-      <span class="chip-done">已完成</span>
-      <span class="ml-2 text-ink-300">·</span>
-      <span class="text-ink-500">奶油色格=请假日</span>
-    </div>
-
-    <!-- 星期表头 -->
-    <div class="grid grid-cols-7 gap-2 text-center text-xs text-ink-500 font-hand shrink-0">
-      <div v-for="w in ['一','二','三','四','五','六','日']" :key="w">周{{ w }}</div>
-    </div>
-
-    <!-- 日历主体：flex-1 撑满，格子 min-h-0 保证不把父容器撑高 -->
-    <div class="grid grid-cols-7 grid-rows-6 gap-2 flex-1 min-h-0">
-      <div
-        v-for="d in days" :key="d.date"
-        class="relative rounded-xl2 p-1.5 bg-white shadow-soft cursor-pointer transition hover:-translate-y-0.5 hover:shadow-pop flex flex-col min-h-0 overflow-hidden"
-        :class="[
-          !d.inMonth ? 'opacity-40' : '',
-          d.leave ? 'bg-cream-200' : '',
-          d.date === todayStr ? 'ring-2 ring-brand-400' : '',
-          selectedDate === d.date ? 'ring-2 ring-brand-600 shadow-pop bg-brand-50 -translate-y-0.5' : '',
-        ]"
-        @click="selectDay(d.date)"
-      >
-        <!-- 选中格子右侧的小箭头，暗示抽屉出现 -->
-        <span v-if="selectedDate === d.date"
-              class="absolute right-1 top-1 text-brand-600 text-xs font-hand leading-none pointer-events-none select-none"
-              title="详情在右侧抽屉">→</span>
-
-        <div class="flex items-center justify-between mb-0.5 shrink-0">
-          <span class="text-sm font-hand leading-none" :class="[
-            d.date === todayStr ? 'text-brand-700 font-bold' : '',
-            selectedDate === d.date ? 'text-brand-700 font-bold' : '',
-          ]">{{ dayjs(d.date).date() }}</span>
-          <button v-if="d.inMonth"
-                  class="text-[10px] font-hand leading-none px-1.5 py-0.5 rounded-full transition"
-                  :class="d.leave
-                    ? 'bg-[#FAE6C7] text-[#8A5E26] hover:bg-[#F5D8A8]'
-                    : 'bg-white/60 text-ink-500 hover:bg-brand-100 hover:text-brand-700'"
-                  :title="d.leave ? '取消请假' : '标记这天请假'"
-                  @click.stop="toggleLeaveForCell(d)">
-            {{ d.leave ? '✓休' : '🌙休' }}
-          </button>
-        </div>
-
-        <div v-if="d.leave" class="text-xs text-ink-500 font-hand">休息日 ☕</div>
-        <template v-else>
-          <div class="space-y-0.5 flex-1 min-h-0 overflow-hidden">
-            <div v-for="it in d.items.slice(0, MAX_CELL_ITEMS)" :key="it.id"
-                 class="text-[10px] rounded-md px-1.5 py-0.5 truncate font-hand leading-snug"
-                 :class="chipClass(it)"
-                 :title="`${it.book_title}${it.is_cover ? ' · 【封】' : ''} · ${it.page_title || '画页'} · ${it.planned_hours}h`">
-              <span v-if="it.is_cover">【封】</span>{{ it.book_title }}
-              <span v-if="it.page_title" class="opacity-80">· {{ it.page_title }}</span>
-              <span class="opacity-70">· {{ it.planned_hours }}h</span>
-            </div>
-            <div v-if="d.items.length > MAX_CELL_ITEMS"
-                 class="text-[10px] font-hand text-ink-500 px-1.5 leading-snug">
-              +{{ d.items.length - MAX_CELL_ITEMS }} 项
-            </div>
-          </div>
-          <div v-if="d.items.length && d.todayTotal" class="text-[10px] text-ink-500 shrink-0 font-hand leading-none mt-0.5">
-            共 {{ d.todayTotal }}h · {{ d.items.length }} 页
-          </div>
-        </template>
+      <button class="btn-ghost" @click="prev">‹ 上月</button>
+      <div class="text-xl text-brand-700">{{ cursor.format('YYYY 年 M 月') }}</div>
+      <button class="btn-ghost" @click="next">下月 ›</button>
+      <button class="btn-ghost" @click="jumpToday">今天</button>
+      <div class="ml-auto text-xs text-ink-500 flex items-center gap-2 flex-wrap">
+        <span class="inline-block w-3 h-3 rounded-full align-middle" style="background:linear-gradient(90deg,#D7ECEE,#4C9BA4);"></span>画本
+        <span class="inline-block w-3 h-3 rounded-full align-middle" style="background:#F4B9CC;"></span>创作
+        <span class="inline-block w-3 h-3 rounded-full align-middle" style="background:#BFA8E8;"></span>剪辑
+        <span class="text-ink-400">·</span> 点日期开抽屉
       </div>
     </div>
 
-    <!-- 右侧抽屉 -->
-    <Teleport to="body">
-      <!-- 半透明蒙层（点击关闭）-->
-      <Transition name="drawer-backdrop">
-        <div v-if="selectedDate"
-             class="fixed inset-0 bg-ink-900/20 z-30"
-             @click="closeDrawer" />
-      </Transition>
+    <!-- 星期表头 -->
+    <div class="grid grid-cols-7 text-center text-sm text-ink-500 shrink-0"
+         :style="{ gap: CELL_GAP + 'px' }">
+      <div v-for="w in ['一','二','三','四','五','六','日']" :key="w">周{{ w }}</div>
+    </div>
 
-      <Transition name="drawer-panel">
-      <aside v-if="selectedDate"
-             class="fixed top-0 right-0 h-full w-[420px] max-w-[92vw] bg-cream-100 shadow-pop z-40 flex flex-col border-l border-cream-300/60 will-change-transform">
-        <!-- 抽屉顶栏 -->
-        <div class="px-5 py-4 border-b border-cream-300/60 flex items-start gap-3 shrink-0">
-          <div class="flex-1 min-w-0">
-            <h3 class="font-hand text-xl text-brand-700 truncate">
-              {{ dayjs(selectedDate).format('M 月 D 日') }}
-              <span class="text-sm text-ink-500 ml-1">{{ dayjs(selectedDate).format('ddd') }}</span>
-            </h3>
-            <div class="mt-1 flex items-center gap-1.5 flex-wrap">
-              <span v-if="detailIsToday" class="chip-brand text-[10px]">今天</span>
-              <span v-if="detailIsLeave" class="chip-warn text-[10px]">休息日</span>
-              <span class="text-xs text-ink-500 font-hand">已排 {{ detailTotal }}h · {{ detailItems.length }} 页</span>
+    <!-- 月份主体（一屏展完，不滚动）-->
+    <div class="flex-1 min-h-0 flex flex-col gap-2">
+      <div v-for="(w, wi) in weeks" :key="wi"
+           class="relative flex-1 min-h-0 overflow-hidden">
+          <!-- 背景日格子（带间隙）-->
+          <div class="absolute inset-0 grid grid-cols-7" :style="{ gap: CELL_GAP + 'px' }">
+            <div v-for="d in w.days" :key="d.date"
+                 class="relative rounded-xl2 shadow-soft cursor-pointer transition overflow-hidden"
+                 :class="[
+                   !d.inMonth ? 'bg-cream-100/50' : 'bg-white',
+                   schedule.isLeave(d.date) ? '!bg-[#FFF0D6]' : '',
+                   d.date === todayStr ? 'ring-2 ring-[#A7CEE5]' : '',
+                   selectedDate === d.date ? 'ring-2 ring-[#F2ABB6] shadow-pop' : '',
+                 ]"
+                 @click="selectDay(d.date)">
+              <div class="flex items-center justify-between px-2.5 pt-2">
+                <span class="text-base leading-none font-medium"
+                      :class="[
+                        !d.inMonth ? 'text-ink-300' : 'text-ink-700',
+                        d.date === todayStr ? '!text-[#355F7D]' : '',
+                      ]">{{ d.dayNum }}</span>
+                <button v-if="d.inMonth"
+                        class="text-xs leading-none px-2 py-1 rounded-full transition font-medium"
+                        :class="schedule.isLeave(d.date)
+                          ? 'bg-[#FFE4B5] text-[#8A5E26] hover:bg-[#F6D79F]'
+                          : 'bg-cream-200/70 text-ink-500 hover:bg-[#DCF1E3] hover:text-[#316B4C]'"
+                        :title="schedule.isLeave(d.date) ? '取消休息' : '标为休息'"
+                        @click.stop="toggleLeaveForCell(d.date)">
+                  {{ schedule.isLeave(d.date) ? '✓ 休' : '休' }}
+                </button>
+              </div>
             </div>
           </div>
-          <button class="btn-ghost font-hand !px-2 !py-1 text-lg leading-none shrink-0" title="关闭" @click="closeDrawer">×</button>
+
+          <!-- 本的条带（absolute 定位，用 calc 跨越 gap）-->
+          <div class="absolute left-0 right-0 pointer-events-none" :style="{ top: DAY_HEADER_H + 'px' }">
+            <div v-for="bar in layout.bars[wi]" :key="`b${bar.book.id}_${wi}`"
+                 class="absolute pointer-events-auto cursor-pointer group"
+                 :style="{
+                   left: colLeft(bar.colStart),
+                   width: colWidth(bar.colEnd - bar.colStart + 1),
+                   top: (bar.lane * (LANE_H + LANE_GAP)) + 'px',
+                   height: LANE_H + 'px',
+                 }"
+                 :title="`${bar.book.title} · ${bar.book.start_date} → ${bar.book.deadline}`"
+                 @click.stop="openBook(bar.book)">
+              <div class="h-full px-3 flex items-center gap-1.5 shadow-soft transition hover:brightness-105 hover:-translate-y-px"
+                   :style="barStyle(bar)">
+                <span v-if="bar.isStart" class="text-xs leading-none truncate font-medium">{{ bar.book.title }}</span>
+                <span v-if="bar.completed" class="text-xs leading-none ml-auto">✓</span>
+              </div>
+            </div>
+
+            <!-- 视频块 -->
+            <div v-for="(v, vi) in layout.videos[wi]" :key="`v${wi}_${vi}`"
+                 class="absolute pointer-events-auto cursor-pointer"
+                 :style="{
+                   left: colLeft(v.col),
+                   width: colWidth(1),
+                   top: (layout.laneCount[wi] * (LANE_H + LANE_GAP)) + 'px',
+                   height: LANE_H + 'px',
+                 }"
+                 :title="`${v.book.title} · 录视频`"
+                 @click.stop="toggleVideoDone(v.book.id, dayjs(v.book.deadline).add(1,'day').format('YYYY-MM-DD'))">
+              <div class="h-full px-2 rounded-full flex items-center justify-center gap-1 shadow-soft"
+                   :style="videoStyle(v)">
+                <span class="text-xs">🎬</span>
+                <span class="text-xs truncate font-medium">视频</span>
+                <span v-if="v.is_done" class="text-xs">✓</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 每日创作/剪辑小徽章（格子底部） -->
+          <template v-for="d in w.days" :key="`t${d.date}`">
+            <div v-if="dayTasks.byDate[d.date]?.length"
+                 class="absolute pointer-events-none"
+                 :style="{
+                   left: colLeft(d.weekday),
+                   width: colWidth(1),
+                   bottom: '6px',
+                   paddingLeft: '6px',
+                   paddingRight: '6px',
+                 }">
+              <div class="space-y-0.5">
+                <div v-for="t in dayTasks.byDate[d.date]?.slice(0, 3)" :key="t.id"
+                     class="text-xs leading-[16px] px-2 py-0.5 rounded-full truncate font-medium"
+                     :style="taskChipStyle(t.kind, !!t.is_done)">
+                  <span v-if="t.kind === 'creation'">✨</span><span v-else>🎬</span>
+                  {{ t.title || (t.kind === 'creation' ? '创作' : '剪辑') }}
+                </div>
+                <div v-if="(dayTasks.byDate[d.date]?.length || 0) > 3"
+                     class="text-xs text-ink-500 px-2">+{{ (dayTasks.byDate[d.date]?.length || 0) - 3 }}</div>
+              </div>
+            </div>
+          </template>
         </div>
-
-        <!-- 抽屉主体：可滚 -->
-        <div class="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
-          <!-- 当日工时 -->
-          <section class="bg-white rounded-xl2 shadow-soft p-3">
-            <div class="text-xs text-ink-500 font-hand mb-2">当日可用工时</div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <input type="number" min="0" step="0.5" class="input !w-24 !py-1" v-model.number="dayHoursInput"
-                     :placeholder="String(settings.defaultDailyHours)" />
-              <span class="text-xs text-ink-500 font-hand">h</span>
-              <button class="btn-ghost text-xs ml-auto" :disabled="dayHoursSaving" @click="saveDayHours">
-                {{ dayHoursSaving ? '保存中…' : '保存' }}
-              </button>
-            </div>
-          </section>
-
-          <!-- 请假 -->
-          <section class="bg-white rounded-xl2 shadow-soft p-3 flex items-center gap-2">
-            <div class="flex-1">
-              <div class="text-xs text-ink-500 font-hand">休息日</div>
-              <div class="text-sm font-hand" :class="detailIsLeave ? 'text-brand-700' : 'text-ink-700'">
-                {{ detailIsLeave ? '今日已标记为休息' : '今日正常工作' }}
+      </div>
+    <!-- 右侧抽屉 -->
+    <Teleport to="body">
+      <Transition name="drawer-backdrop">
+        <div v-if="selectedDate" class="fixed inset-0 bg-ink-900/20 z-30" @click="closeDrawer" />
+      </Transition>
+      <Transition name="drawer-panel">
+        <aside v-if="selectedDate"
+               class="fixed top-0 right-0 h-full w-[440px] max-w-[92vw] bg-cream-100 shadow-pop z-40 flex flex-col border-l border-cream-300/60">
+          <!-- 抽屉头 -->
+          <div class="px-5 py-4 border-b border-cream-300/60 flex items-start gap-3 shrink-0">
+            <div class="flex-1 min-w-0">
+              <h3 class="text-xl text-brand-700 truncate">
+                {{ dayjs(selectedDate).format('M 月 D 日') }}
+                <span class="text-sm text-ink-500 ml-1">周{{ ['日','一','二','三','四','五','六'][dayjs(selectedDate).day()] }}</span>
+              </h3>
+              <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                <span v-if="selectedDate === todayStr" class="chip-brand text-[10px]">今天</span>
+                <span v-if="selectedIsLeave" class="chip-warn text-[10px]">休息日</span>
+                <span class="text-xs text-ink-500">画本 {{ dayBooks.length }} · 创作 {{ dayCreations.length }} · 剪辑 {{ dayEditings.length }}</span>
               </div>
             </div>
-            <button class="btn-ghost font-hand text-sm" @click="toggleLeaveOnDay">
-              {{ detailIsLeave ? '取消请假' : '请假' }}
-            </button>
-          </section>
+            <button class="btn-ghost !px-2 !py-1 text-lg leading-none shrink-0" title="关闭" @click="closeDrawer">×</button>
+          </div>
 
-          <!-- 排期列表 -->
-          <section>
-            <div class="flex items-center justify-between mb-2 px-1">
-              <div class="text-xs text-ink-500 font-hand">今日排期</div>
-              <button v-if="canMarkAllDone"
-                      class="chip-done text-[11px] font-hand px-2 py-1 rounded-full flex items-center gap-1
-                             hover:brightness-95 active:brightness-90 transition shrink-0
-                             disabled:opacity-60 disabled:cursor-not-allowed"
-                      :disabled="markingAllDone"
-                      :title="'把未完成的画页全部标为已完成，不触发重排'"
-                      @click="markAllDoneForSelected">
-                <span class="leading-none">✓</span>
-                <span class="leading-none">{{ markingAllDone ? '处理中…' : '一键标完成' }}</span>
-              </button>
-            </div>
-            <div v-if="loadingDetail" class="text-sm text-ink-500 font-hand py-6 text-center">加载中…</div>
-            <template v-else>
-              <div v-if="!detailItems.length"
-                   class="bg-white rounded-xl2 shadow-soft p-5 text-center text-sm text-ink-500 font-hand">
-                今天没有排期，可以喘口气 ☕
+          <!-- 主体滚动 -->
+          <div class="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
+            <!-- 休息切换 -->
+            <section class="bg-white rounded-xl2 shadow-soft p-3 flex items-center gap-2">
+              <div class="flex-1">
+                <div class="text-xs text-ink-500">休息状态</div>
+                <div class="text-sm" :class="selectedIsLeave ? 'text-brand-700' : 'text-ink-700'">
+                  {{ selectedIsLeave ? '已标为休息日' : '正常工作' }}
+                </div>
               </div>
+              <button class="btn-ghost text-sm" @click="toggleLeaveForCell(selectedDate!)">
+                {{ selectedIsLeave ? '取消' : '标休' }}
+              </button>
+            </section>
+
+            <!-- 画本 -->
+            <section>
+              <div class="flex items-center justify-between mb-2 px-1">
+                <div class="text-xs text-ink-500">画本（{{ dayBooks.length }}）</div>
+                <button v-if="selectedIsPastOrToday && dayBooks.some(it => !it.is_done)"
+                        class="chip-done text-[11px] px-2 py-0.5 hover:brightness-95 transition"
+                        @click="markAllBooksDoneToday">✓ 全标完成</button>
+              </div>
+              <div v-if="!dayBooks.length" class="text-sm text-ink-400 text-center py-3">今天没有本排到</div>
               <div v-else class="space-y-2">
-                <div v-for="it in detailItems" :key="it.id"
+                <div v-for="(it, i) in dayBooks" :key="`bd${i}`"
                      class="bg-white rounded-xl2 shadow-soft p-3">
-                  <div class="flex items-start gap-2">
-                    <input type="checkbox" :checked="!!it.is_done" class="w-4 h-4 mt-1 shrink-0"
-                           @change="toggleDone(it)" />
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" :checked="it.is_done"
+                           :disabled="selectedDate! > todayStr"
+                           class="w-4 h-4 shrink-0"
+                           @change="it.kind === 'book' ? toggleBookDoneOnDate(it.book.id, selectedDate!) : toggleVideoDone(it.book.id, selectedDate!)" />
                     <div class="flex-1 min-w-0">
-                      <div class="font-hand text-sm" :class="it.is_done ? 'line-through text-ink-500' : ''">
-                        <span v-if="it.is_cover">【封】</span>{{ it.book_title }}
-                        <span class="text-ink-500"> · </span>{{ it.page_title || '画页' }}
+                      <div class="text-sm" :class="it.is_done ? 'line-through text-ink-500' : 'text-ink-700'">
+                        <span v-if="it.kind === 'video'" class="mr-1">🎬</span>{{ it.book.title }}
+                        <span v-if="it.kind === 'video'" class="text-ink-500 text-xs ml-1">· 录视频</span>
                       </div>
-                      <div class="mt-1 flex items-center gap-1 flex-wrap">
-                        <span class="chip text-[10px]" :class="chipClass(it)">{{ statusLabel(it.book_status) }}</span>
-                        <span v-if="it.is_user_override" class="chip text-[10px]">已调整</span>
-                        <span v-if="it.style_name" class="chip text-[10px]">{{ it.style_name }}</span>
-                        <span v-if="it.size_name" class="chip text-[10px]">{{ it.size_name }}</span>
-                      </div>
-                      <div class="text-xs text-ink-500 font-hand mt-1">
-                        计划 {{ it.planned_hours }}h
-                        <span v-if="it.book_deadline">· 交付 {{ it.book_deadline }}</span>
+                      <div class="text-[11px] text-ink-500 mt-0.5">
+                        {{ it.book.start_date }} → {{ it.book.deadline }}
                       </div>
                     </div>
-                    <button class="btn-ghost !px-2 !py-1 text-xs font-hand shrink-0" title="编辑画页"
-                            @click="openPageEdit(it)">✎ 画页</button>
-                  </div>
-                  <div class="flex items-center gap-2 mt-2 text-xs text-ink-500 font-hand flex-wrap">
-                    <label class="flex items-center gap-1">
-                      实际
-                      <input type="number" min="0" step="0.5"
-                             class="input !w-20 !py-0.5 !px-2 !text-xs"
-                             :value="it.actual_hours ?? ''"
-                             :placeholder="String(it.planned_hours)"
-                             @change="saveActualHours(it, Number(($event.target as HTMLInputElement).value))" />
-                      h
-                    </label>
-                    <span class="text-ink-300">·</span>
-                    <button class="btn-ghost !p-1 text-xs" title="提前一天" @click="moveItem(it, -1)">← 前</button>
-                    <button class="btn-ghost !p-1 text-xs" title="推后一天" @click="moveItem(it, 1)">后 →</button>
-                    <input type="date" class="input !w-32 !py-0.5 !px-2 !text-xs"
-                           :value="it.date"
-                           @change="moveItemTo(it, ($event.target as HTMLInputElement).value)" />
+                    <button class="btn-ghost !py-1 !px-2 text-xs" @click="openBook(it.book)">打开</button>
                   </div>
                 </div>
               </div>
-            </template>
-          </section>
+            </section>
 
-          <!-- 笔记 -->
-          <section class="bg-white rounded-xl2 shadow-soft p-3">
-            <div class="text-xs text-ink-500 font-hand mb-1">今天打算做什么 / 笔记</div>
-            <textarea v-model="dayNote" rows="3"
-                      class="input text-sm font-hand"
-                      placeholder="记一句，比如『先把小鹿的封面搞完』" />
-            <div class="flex justify-end mt-2">
-              <button class="btn-ghost text-xs font-hand" :disabled="dayNoteSaving" @click="saveDayNote">
-                {{ dayNoteSaving ? '保存中…' : '保存笔记' }}
-              </button>
-            </div>
-          </section>
-        </div>
-      </aside>
+            <!-- 创作 -->
+            <section>
+              <div class="flex items-center justify-between mb-2 px-1">
+                <div class="text-xs text-ink-500">创作（{{ dayCreations.length }}）</div>
+                <button class="text-xs text-[#8B3C55] hover:underline" @click="addTask('creation')">＋ 新增创作</button>
+              </div>
+              <div v-if="!dayCreations.length" class="text-sm text-ink-400 text-center py-3">没有临时创作</div>
+              <div v-else class="space-y-2">
+                <div v-for="t in dayCreations" :key="t.id"
+                     class="rounded-xl2 shadow-soft p-3"
+                     :style="taskCellStyle('creation')">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4 shrink-0"
+                           :checked="!!t.is_done"
+                           @change="toggleTaskDone(t)" />
+                    <input :value="t.title"
+                           class="flex-1 bg-transparent text-sm text-ink-900 outline-none border-b border-white/60 focus:border-[#8B3C55]"
+                           :class="t.is_done ? 'line-through text-ink-500' : ''"
+                           @change="(e) => updateTaskField(t, { title: (e.target as HTMLInputElement).value })" />
+                    <button class="text-[11px] text-ink-500 hover:text-[#D98B92]" title="删除" @click="removeTask(t)">✕</button>
+                  </div>
+                  <div class="flex items-center gap-2 mt-2">
+                    <div v-if="t.inspiration" class="w-10 h-10 rounded overflow-hidden shrink-0 bg-white/50">
+                      <img :src="`http://localhost:3899/images/${t.inspiration.thumb_path}`" class="w-full h-full object-cover" />
+                    </div>
+                    <button class="btn-ghost !py-1 !px-2 text-[11px]" @click="openInspirationPicker(t)">
+                      {{ t.inspiration ? '换灵感' : '选灵感' }}
+                    </button>
+                    <button v-if="t.inspiration" class="text-[11px] text-ink-500 hover:underline"
+                            @click="updateTaskField(t, { inspiration_id: null })">去除</button>
+                  </div>
+                  <textarea :value="t.note" rows="1"
+                            placeholder="备注…"
+                            class="input !text-xs !py-1 mt-2 bg-white/60"
+                            @change="(e) => updateTaskField(t, { note: (e.target as HTMLTextAreaElement).value })" />
+                </div>
+              </div>
+            </section>
+
+            <!-- 剪辑 -->
+            <section>
+              <div class="flex items-center justify-between mb-2 px-1">
+                <div class="text-xs text-ink-500">剪辑（{{ dayEditings.length }}）</div>
+                <button class="text-xs text-[#5B3C8A] hover:underline" @click="addTask('editing')">＋ 新增剪辑</button>
+              </div>
+              <div v-if="!dayEditings.length" class="text-sm text-ink-400 text-center py-3">没有临时剪辑</div>
+              <div v-else class="space-y-2">
+                <div v-for="t in dayEditings" :key="t.id"
+                     class="rounded-xl2 shadow-soft p-3"
+                     :style="taskCellStyle('editing')">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4 shrink-0"
+                           :checked="!!t.is_done"
+                           @change="toggleTaskDone(t)" />
+                    <input :value="t.title"
+                           class="flex-1 bg-transparent text-sm text-ink-900 outline-none border-b border-white/60 focus:border-[#5B3C8A]"
+                           :class="t.is_done ? 'line-through text-ink-500' : ''"
+                           @change="(e) => updateTaskField(t, { title: (e.target as HTMLInputElement).value })" />
+                    <button class="text-[11px] text-ink-500 hover:text-[#D98B92]" title="删除" @click="removeTask(t)">✕</button>
+                  </div>
+                  <textarea :value="t.note" rows="1"
+                            placeholder="备注…"
+                            class="input !text-xs !py-1 mt-2 bg-white/60"
+                            @change="(e) => updateTaskField(t, { note: (e.target as HTMLTextAreaElement).value })" />
+                </div>
+              </div>
+            </section>
+
+            <!-- 笔记 -->
+            <section class="bg-white rounded-xl2 shadow-soft p-3">
+              <div class="text-xs text-ink-500 mb-1">今天笔记</div>
+              <textarea v-model="dayNote" rows="3" class="input text-sm" placeholder="记一句…" />
+              <div class="flex justify-end mt-2">
+                <button class="btn-ghost text-xs" :disabled="dayNoteSaving" @click="saveDayNote">
+                  {{ dayNoteSaving ? '保存中…' : '保存笔记' }}
+                </button>
+              </div>
+            </section>
+          </div>
+        </aside>
       </Transition>
     </Teleport>
 
-    <!-- 画页编辑弹窗（复用）-->
-    <PageEditModal v-model:open="pageModalOpen" :target="pageEditTarget" @saved="onPageSaved" />
+    <!-- 灵感挑选弹窗 -->
+    <Teleport to="body">
+      <div v-if="inspirationPickerFor" class="fixed inset-0 z-[60] grid place-items-center">
+        <div class="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" @click="inspirationPickerFor = null" />
+        <div class="relative card w-[680px] max-w-[92vw] max-h-[82vh] overflow-auto animate-pop">
+          <div class="flex items-center gap-2 mb-3">
+            <h3 class="text-lg text-brand-700 flex-1">从创作中心挑灵感</h3>
+            <button class="text-xs text-ink-500" @click="inspirationPickerFor = null">关闭</button>
+          </div>
+          <div v-if="!inspirations.list.length" class="text-sm text-ink-500 text-center py-10">
+            创作中心还没图，先去 ✨创作中心 上传吧
+          </div>
+          <div v-else class="grid grid-cols-3 md:grid-cols-4 gap-2">
+            <div v-for="ins in inspirations.list" :key="ins.id"
+                 class="bg-cream-200 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-brand-400 transition"
+                 @click="pickInspiration(ins)">
+              <div class="aspect-square">
+                <img :src="`http://localhost:3899/images/${ins.thumb_path}`" class="w-full h-full object-cover" />
+              </div>
+              <div v-if="ins.note" class="text-[11px] p-1.5 truncate">{{ ins.note }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
