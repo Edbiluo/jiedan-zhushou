@@ -204,6 +204,32 @@ const CELL_GAP = 8;   // px
 const DAY_HEADER_H = 30;
 const LANE_H = 22;
 const LANE_GAP = 4;
+const TASK_ROW_H = 20; // 每条任务徽章占高（含行间距）
+const MAX_TASK_ROWS = 3;
+
+// 某周"本条带 + 视频块"总高度
+function barsZoneHeight(wi: number) {
+  const lanes = layout.value.laneCount[wi] || 0;
+  const videoRow = layout.value.videos[wi].length > 0 ? 1 : 0;
+  return (lanes + videoRow) * (LANE_H + LANE_GAP);
+}
+
+// 任务徽章起始 top（紧跟 bar 区下方）
+function tasksTop(wi: number) {
+  return DAY_HEADER_H + barsZoneHeight(wi) + 6;
+}
+
+// 按内容算每周总高度（自适应）
+function weekHeight(wi: number) {
+  const tasksMax = weeks.value[wi].days
+    .map((d) => Math.min(MAX_TASK_ROWS, dayTasks.byDate[d.date]?.length || 0))
+    .reduce((a, b) => Math.max(a, b), 0);
+  const hasOverflow = weeks.value[wi].days.some((d) => (dayTasks.byDate[d.date]?.length || 0) > MAX_TASK_ROWS);
+  return DAY_HEADER_H + barsZoneHeight(wi) + 6
+       + tasksMax * TASK_ROW_H
+       + (hasOverflow ? 16 : 0)
+       + 10; // 底部留白
+}
 
 // 条带位置计算：容器宽度按"7列等宽 + 6 个 gap"切分
 // left = colStart * (cellW + gap)，width = (colEnd-colStart+1) * cellW + (colEnd-colStart) * gap
@@ -341,10 +367,12 @@ async function markAllBooksDoneToday() {
       <div v-for="w in ['一','二','三','四','五','六','日']" :key="w">周{{ w }}</div>
     </div>
 
-    <!-- 月份主体（一屏展完，不滚动）-->
-    <div class="flex-1 min-h-0 flex flex-col gap-2">
-      <div v-for="(w, wi) in weeks" :key="wi"
-           class="relative flex-1 min-h-0 overflow-hidden">
+    <!-- 月份主体（每周高度随内容自适应；不够一屏再滚）-->
+    <div class="flex-1 min-h-0 overflow-auto pr-1">
+      <div class="flex flex-col gap-2">
+        <div v-for="(w, wi) in weeks" :key="wi"
+             class="relative shrink-0 overflow-hidden"
+             :style="{ height: weekHeight(wi) + 'px' }">
           <!-- 背景日格子（带间隙）-->
           <div class="absolute inset-0 grid grid-cols-7" :style="{ gap: CELL_GAP + 'px' }">
             <div v-for="d in w.days" :key="d.date"
@@ -414,31 +442,33 @@ async function markAllBooksDoneToday() {
             </div>
           </div>
 
-          <!-- 每日创作/剪辑小徽章（格子底部） -->
+          <!-- 每日创作/剪辑小徽章（紧跟 bar 区下方，避免与 bar 撞） -->
           <template v-for="d in w.days" :key="`t${d.date}`">
             <div v-if="dayTasks.byDate[d.date]?.length"
                  class="absolute pointer-events-none"
                  :style="{
                    left: colLeft(d.weekday),
                    width: colWidth(1),
-                   bottom: '6px',
+                   top: tasksTop(wi) + 'px',
                    paddingLeft: '6px',
                    paddingRight: '6px',
                  }">
               <div class="space-y-0.5">
-                <div v-for="t in dayTasks.byDate[d.date]?.slice(0, 3)" :key="t.id"
+                <div v-for="t in dayTasks.byDate[d.date]?.slice(0, MAX_TASK_ROWS)" :key="t.id"
                      class="text-xs leading-[16px] px-2 py-0.5 rounded-full truncate font-medium"
                      :style="taskChipStyle(t.kind, !!t.is_done)">
                   <span v-if="t.kind === 'creation'">✨</span><span v-else>🎬</span>
                   {{ t.title || (t.kind === 'creation' ? '创作' : '剪辑') }}
                 </div>
-                <div v-if="(dayTasks.byDate[d.date]?.length || 0) > 3"
-                     class="text-xs text-ink-500 px-2">+{{ (dayTasks.byDate[d.date]?.length || 0) - 3 }}</div>
+                <div v-if="(dayTasks.byDate[d.date]?.length || 0) > MAX_TASK_ROWS"
+                     class="text-xs text-ink-500 px-2">+{{ (dayTasks.byDate[d.date]?.length || 0) - MAX_TASK_ROWS }}</div>
               </div>
             </div>
           </template>
         </div>
       </div>
+    </div>
+
     <!-- 右侧抽屉 -->
     <Teleport to="body">
       <Transition name="drawer-backdrop">
