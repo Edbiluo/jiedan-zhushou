@@ -36,12 +36,12 @@ const navs = [
       </div>
     </aside>
 
-    <main class="flex flex-col min-h-0 overflow-hidden">
+    <main class="flex flex-col min-h-0">
       <header class="bg-cream-100/80 backdrop-blur px-8 py-4 border-b border-cream-300/50 z-10 shrink-0 flex items-center justify-between gap-4">
         <h2 class="text-2xl text-ink-900">{{ pageTitle }}</h2>
         <UpdateBadge />
       </header>
-      <div class="flex-1 min-h-0 overflow-hidden flex flex-col">
+      <div class="flex-1 min-h-0 overflow-auto flex flex-col p-6">
         <RouterView v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
