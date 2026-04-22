@@ -347,7 +347,7 @@ async function markAllBooksDoneToday() {
 </script>
 
 <template>
-  <div class="h-full flex flex-col gap-3 min-h-0">
+  <div class="h-full flex flex-col gap-3 min-h-0 pb-8 pr-8">
     <!-- 顶部工具条 -->
     <div class="flex items-center gap-3 flex-wrap shrink-0">
       <button class="btn-ghost" @click="prev">‹ 上月</button>

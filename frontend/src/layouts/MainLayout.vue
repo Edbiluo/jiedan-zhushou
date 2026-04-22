@@ -41,7 +41,7 @@ const navs = [
         <h2 class="text-2xl text-ink-900">{{ pageTitle }}</h2>
         <UpdateBadge />
       </header>
-      <div class="p-8 flex-1 min-h-0 overflow-auto">
+      <div class="px-8 pt-8 flex-1 min-h-0 overflow-auto flex flex-col">
         <RouterView v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
