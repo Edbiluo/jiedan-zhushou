@@ -27,13 +27,37 @@ delete env.NO_PROXY;
 env.npm_config_proxy = '';
 env.npm_config_https_proxy = '';
 
-const args = ['electron-builder', '--win', '--publish', 'always', '--x64'];
-console.log('[publish] running:', args.join(' '));
-const child = spawn('npx', args, {
+// 步骤 1：先构建前端
+console.log('[publish] building frontend...');
+const buildFrontendArgs = ['run', 'build:frontend'];
+const buildFrontendChild = spawn('npm', buildFrontendArgs, {
   cwd: path.join(__dirname, '..'),
   env,
   stdio: 'inherit',
   shell: true,
 });
-child.on('exit', (code) => process.exit(code ?? 0));
-child.on('error', (e) => { console.error(e); process.exit(1); });
+
+buildFrontendChild.on('exit', (code) => {
+  if (code !== 0) {
+    console.error('[publish] frontend build failed with exit code:', code);
+    process.exit(code ?? 1);
+  }
+
+  // 步骤 2：前端构建成功，继续打包发布
+  console.log('[publish] frontend build succeeded, starting electron-builder...');
+  const args = ['electron-builder', '--win', '--publish', 'always', '--x64'];
+  console.log('[publish] running:', args.join(' '));
+  const child = spawn('npx', args, {
+    cwd: path.join(__dirname, '..'),
+    env,
+    stdio: 'inherit',
+    shell: true,
+  });
+  child.on('exit', (code) => process.exit(code ?? 0));
+  child.on('error', (e) => { console.error(e); process.exit(1); });
+});
+
+buildFrontendChild.on('error', (e) => {
+  console.error('[publish] frontend build error:', e);
+  process.exit(1);
+});
