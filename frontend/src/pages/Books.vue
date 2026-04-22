@@ -121,7 +121,7 @@ function openCreate() {
             </div>
             <div>
               <label class="text-xs text-ink-500">完成日期 <span class="text-[#D98B92]">*</span></label>
-              <input v-model="form.deadline" type="date" :min="form.start_date || todayStr" class="input" />
+              <input v-model="form.deadline" type="date" class="input" />
             </div>
 
             <div>

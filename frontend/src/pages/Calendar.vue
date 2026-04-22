@@ -316,12 +316,13 @@ async function pickInspiration(ins: Inspiration | null) {
   inspirationPickerFor.value = null;
 }
 
-function taskChipStyle(kind: DayTaskKind, is_done: boolean) {
+function taskChipStyle(kind: DayTaskKind, is_done: boolean, date?: string) {
   const p = TASK_PALETTE[kind];
+  const isPast = date && date < todayStr;
   return {
     background: p.light,
-    color: p.ink,
-    opacity: is_done ? 0.55 : 1,
+    color: isPast ? '#999' : p.ink,
+    opacity: is_done ? 0.55 : isPast ? 0.6 : 1,
     textDecoration: is_done ? 'line-through' : 'none',
   };
 }
@@ -368,26 +369,26 @@ async function markAllBooksDoneToday() {
     </div>
 
     <!-- 月份主体（每周高度随内容自适应；不够一屏再滚）-->
-    <div class="flex-1 min-h-0 overflow-auto pr-1">
-      <div class="flex flex-col gap-2">
+    <div class="flex-1 min-h-0 overflow-auto pr-1 flex flex-col">
+      <div class="flex flex-col gap-2 flex-1">
         <div v-for="(w, wi) in weeks" :key="wi"
-             class="relative shrink-0 overflow-hidden"
-             :style="{ height: weekHeight(wi) + 'px' }">
+             class="relative flex-1 overflow-hidden"
+             :style="{ minHeight: weekHeight(wi) + 'px' }">
           <!-- 背景日格子（带间隙）-->
           <div class="absolute inset-0 grid grid-cols-7" :style="{ gap: CELL_GAP + 'px' }">
             <div v-for="d in w.days" :key="d.date"
-                 class="relative rounded-xl2 shadow-soft cursor-pointer transition overflow-hidden"
+                 class="relative rounded-xl2 shadow-soft cursor-pointer transition overflow-hidden flex flex-col"
                  :class="[
-                   !d.inMonth ? 'bg-cream-100/50' : 'bg-white',
+                   !d.inMonth ? 'bg-cream-100/50' : d.date < todayStr ? 'bg-gray-100' : 'bg-white',
                    schedule.isLeave(d.date) ? '!bg-[#FFF0D6]' : '',
                    d.date === todayStr ? 'ring-2 ring-[#A7CEE5]' : '',
                    selectedDate === d.date ? 'ring-2 ring-[#F2ABB6] shadow-pop' : '',
                  ]"
                  @click="selectDay(d.date)">
-              <div class="flex items-center justify-between px-2.5 pt-2">
+              <div class="flex items-center justify-between px-2.5 pt-2 shrink-0">
                 <span class="text-base leading-none font-medium"
                       :class="[
-                        !d.inMonth ? 'text-ink-300' : 'text-ink-700',
+                        !d.inMonth ? 'text-ink-300' : d.date < todayStr ? 'text-gray-500' : 'text-ink-700',
                         d.date === todayStr ? '!text-[#355F7D]' : '',
                       ]">{{ d.dayNum }}</span>
                 <button v-if="d.inMonth"
@@ -456,7 +457,7 @@ async function markAllBooksDoneToday() {
               <div class="space-y-0.5">
                 <div v-for="t in dayTasks.byDate[d.date]?.slice(0, MAX_TASK_ROWS)" :key="t.id"
                      class="text-xs leading-[16px] px-2 py-0.5 rounded-full truncate font-medium"
-                     :style="taskChipStyle(t.kind, !!t.is_done)">
+                     :style="taskChipStyle(t.kind, !!t.is_done, d.date)">
                   <span v-if="t.kind === 'creation'">✨</span><span v-else>🎬</span>
                   {{ t.title || (t.kind === 'creation' ? '创作' : '剪辑') }}
                 </div>

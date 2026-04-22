@@ -67,6 +67,13 @@ onMounted(async () => {
   if (!settings.loaded) await settings.load();
   await pagesStore.reload().catch(() => {});
   await refresh();
+  const handleEsc = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && previewPage.value) {
+      previewPage.value = null;
+    }
+  };
+  window.addEventListener('keydown', handleEsc);
+  return () => window.removeEventListener('keydown', handleEsc);
 });
 watch(() => bookId.value, refresh);
 
@@ -205,11 +212,24 @@ async function pickBatch() {
 const showPagePicker = ref(false);
 const pagePickerSelected = ref<Set<number>>(new Set());
 const previewPage = ref<Page | null>(null);
+const previewZoom = ref(1);
 
 function openPicker() {
   pagePickerSelected.value = new Set();
   showPagePicker.value = true;
 }
+
+function resetPreviewZoom() {
+  previewZoom.value = 1;
+}
+
+function handlePreviewWheel(e: WheelEvent) {
+  if (!previewPage.value) return;
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.1 : -0.1;
+  previewZoom.value = Math.max(0.5, Math.min(3, previewZoom.value - delta));
+}
+
 function togglePick(p: Page) {
   if (pagePickerSelected.value.has(p.id)) pagePickerSelected.value.delete(p.id);
   else pagePickerSelected.value.add(p.id);
@@ -502,11 +522,36 @@ const sizeName = computed(() => settings.sizes.find((s) => s.id === book.value?.
     <!-- 大图预览 -->
     <Teleport to="body">
       <div v-if="previewPage" class="fixed inset-0 z-[60] grid place-items-center cursor-zoom-out"
-           @click="previewPage = null">
-        <div class="absolute inset-0 bg-ink-900/80" />
-        <img v-if="previewPage.image_path"
-             :src="`http://localhost:3899/images/${previewPage.image_path}`"
-             class="relative max-h-[92vh] max-w-[92vw] object-contain rounded-xl shadow-pop" />
+           @click="previewPage = null"
+           @wheel="handlePreviewWheel">
+        <div class="absolute inset-0 bg-ink-900/80" @click.stop="previewPage = null" />
+        <div class="relative flex flex-col items-center gap-2">
+          <div class="absolute top-6 right-6 flex gap-2 z-10">
+            <button class="text-2xl text-white hover:text-red-300 transition leading-none"
+                    title="关闭预览 (ESC)"
+                    @click.stop="previewPage = null">
+              ×
+            </button>
+          </div>
+          <div class="flex gap-2 mb-2">
+            <button class="text-xs bg-white/90 text-ink-700 px-2 py-1 rounded hover:bg-white transition"
+                    @click.stop="resetPreviewZoom">
+              重置缩放
+            </button>
+            <span class="text-xs text-white">{{ Math.round(previewZoom * 100) }}%</span>
+          </div>
+          <div class="relative w-[92vw] h-[92vh] flex items-center justify-center overflow-hidden rounded-xl"
+               @click.stop>
+            <img v-if="previewPage.image_path"
+                 :src="`http://localhost:3899/images/${previewPage.image_path}`"
+                 class="object-contain transition-transform duration-100"
+                 :style="{
+                   transform: `scale(${previewZoom})`,
+                   maxHeight: '100%',
+                   maxWidth: '100%',
+                 }" />
+          </div>
+        </div>
       </div>
     </Teleport>
   </div>
