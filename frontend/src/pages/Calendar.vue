@@ -347,9 +347,9 @@ async function markAllBooksDoneToday() {
 </script>
 
 <template>
-  <div class="h-full flex flex-col gap-3 min-h-0 pb-8 pr-8">
+  <div class="h-full flex flex-col gap-3 min-h-0">
     <!-- 顶部工具条 -->
-    <div class="flex items-center gap-3 flex-wrap shrink-0">
+    <div class="flex items-center gap-3 flex-wrap shrink-0 pb-0 px-8">
       <button class="btn-ghost" @click="prev">‹ 上月</button>
       <div class="text-xl text-brand-700">{{ cursor.format('YYYY 年 M 月') }}</div>
       <button class="btn-ghost" @click="next">下月 ›</button>
@@ -363,21 +363,21 @@ async function markAllBooksDoneToday() {
     </div>
 
     <!-- 星期表头 -->
-    <div class="grid grid-cols-7 text-center text-sm text-ink-500 shrink-0"
+    <div class="grid grid-cols-7 text-center text-sm text-ink-500 shrink-0 px-8"
          :style="{ gap: CELL_GAP + 'px' }">
       <div v-for="w in ['一','二','三','四','五','六','日']" :key="w">周{{ w }}</div>
     </div>
 
-    <!-- 月份主体（每周高度随内容自适应；不够一屏再滚）-->
-    <div class="flex-1 min-h-0 overflow-auto pr-1 flex flex-col">
-      <div class="flex flex-col gap-2 flex-1">
+    <!-- 月份主体（flex-1 占满剩余高度，每周等分）-->
+    <div class="flex-1 min-h-0 overflow-hidden flex flex-col px-8 pb-8">
+      <div class="flex flex-col gap-2 flex-1 min-h-0">
         <div v-for="(w, wi) in weeks" :key="wi"
-             class="relative flex-1 overflow-hidden"
-             :style="{ minHeight: weekHeight(wi) + 'px' }">
-          <!-- 背景日格子（带间隙）-->
+             class="relative flex-1 min-h-0 overflow-hidden"
+             :style="{}">
+          <!-- 背景日格子（带间隙，绝对定位铺满）-->
           <div class="absolute inset-0 grid grid-cols-7" :style="{ gap: CELL_GAP + 'px' }">
             <div v-for="d in w.days" :key="d.date"
-                 class="relative rounded-xl2 shadow-soft cursor-pointer transition overflow-hidden flex flex-col"
+                 class="relative rounded-xl2 shadow-soft cursor-pointer transition overflow-hidden flex flex-col flex-1"
                  :class="[
                    !d.inMonth ? 'bg-cream-100/50' : d.date < todayStr ? 'bg-gray-100' : 'bg-white',
                    schedule.isLeave(d.date) ? '!bg-[#FFF0D6]' : '',

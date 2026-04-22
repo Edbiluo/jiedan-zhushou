@@ -1,11 +1,11 @@
 # 项目结构 · 接单助手
-更新时间: 2026-04-22 16:00:00 · 完成Calendar日历高度自适应和BookDetail图片预览关闭按钮优化
+更新时间: 2026-04-22 19:45:00 · 彻底修复Calendar日历行高均等问题，重构flex布局消除overflow-auto嵌套冲突
 
 ## 进度总览
 - ✅ 完成: 47 个文件
 - 🔄 进行中: 0 个文件
 - 📋 待开发: 0 个文件
-- 当前 sprint: UI优化完成
+- 当前 sprint: v0.3.3版本发布完成
 
 ---
 
@@ -235,10 +235,10 @@
 
 ## frontend/src/layouts/MainLayout.vue
 **状态**: ✅ 完成
-**功能**: 主布局组件，左侧导航栏（6 个主导航）、顶部页面标题栏、右侧内容区路由视图、自动更新徽章
+**功能**: 主布局组件，左侧导航栏（6 个主导航）、顶部页面标题栏、右侧内容区路由视图、自动更新徽章；内容区采用 flex 布局，header shrink-0，路由视图区 flex-1 min-h-0 overflow-hidden；padding 由各页面自行管理，避免 overflow-auto 嵌套冲突
 **对外接口**: 导出主布局组件，集成导航和路由出口
 **关键依赖**: vue-router, frontend/src/components/UpdateBadge.vue
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-04-22 · 移除内容区的 px-8 pt-8 overflow-auto，简化为 flex-1 min-h-0 overflow-hidden
 
 ## frontend/src/components/BookCard.vue
 **状态**: ✅ 完成
@@ -298,10 +298,10 @@
 
 ## frontend/src/pages/Calendar.vue
 **状态**: ✅ 完成
-**功能**: 日历看板，月度日历网格、日排期展示、进度报告、请假申请、任务拖拽、快速完成；日期卡片 flex 布局优化；过去日期视觉灰化区分；日历容器高度自适应充满剩余屏幕空间
+**功能**: 日历看板，月度日历网格、日排期展示、进度报告、请假申请、任务拖拽、快速完成；flex布局彻底重构：最外层h-full flex-col，顶部/表头shrink-0，月份区flex-1占满剩余高度；每周行flex-1等分高度（不依赖minHeight），日期格子flex-1等分列宽；所有内容区overflow隐藏于各层级而非单一overflow-auto；过去日期视觉灰化区分；右侧抽屉支持滚动；底部padding防止溢出
 **对外接口**: 交互式日历、排期管理、请假/任务管理
 **关键依赖**: frontend/src/stores/schedule, frontend/src/stores/dayTasks, dayjs
-**最后更新**: 2026-04-22 · 日历容器flex布局改为flex-1自动撑满高度
+**最后更新**: 2026-04-22 · 消除overflow-auto嵌套冲突，周行改为flex-1等分，日期格子加flex-1
 
 ## frontend/src/pages/Inspirations.vue
 **状态**: ✅ 完成
@@ -361,7 +361,7 @@
 
 ## package.json
 **状态**: ✅ 完成
-**功能**: 项目元数据和依赖配置（名称 jiedan-zhushou、版本 0.3.1、npm scripts、electron-builder 配置、GitHub 发布配置）
+**功能**: 项目元数据和依赖配置（名称 jiedan-zhushou、版本 0.3.3、npm scripts、electron-builder 配置、GitHub 发布配置）
 **对外接口**: npm 脚本（dev, build, dev:frontend, dev:electron 等）
 **关键依赖**: adm-zip, better-sqlite3, dayjs, electron-updater, express, sharp, uuid 及开发依赖
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-04-22 · 版本升级至 0.3.3，Windows 安装包已发布到 GitHub Release
