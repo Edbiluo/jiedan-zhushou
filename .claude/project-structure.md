@@ -1,11 +1,11 @@
 # 项目结构 · 接单助手
-更新时间: 2026-04-22 19:45:00 · 彻底修复Calendar日历行高均等问题，重构flex布局消除overflow-auto嵌套冲突
+更新时间: 2026-04-22 20:15 · 发布 v0.3.4：Calendar/MainLayout 高度修复，清缓存全量重编译，发布到 GitHub Release
 
 ## 进度总览
 - ✅ 完成: 47 个文件
 - 🔄 进行中: 0 个文件
 - 📋 待开发: 0 个文件
-- 当前 sprint: v0.3.3版本发布完成
+- 当前 sprint: v0.3.4版本发布完成，pending git push
 
 ---
 
@@ -361,7 +361,7 @@
 
 ## package.json
 **状态**: ✅ 完成
-**功能**: 项目元数据和依赖配置（名称 jiedan-zhushou、版本 0.3.3、npm scripts、electron-builder 配置、GitHub 发布配置）
+**功能**: 项目元数据和依赖配置（名称 jiedan-zhushou、版本 0.3.4、npm scripts、electron-builder 配置、GitHub 发布配置）
 **对外接口**: npm 脚本（dev, build, dev:frontend, dev:electron 等）
 **关键依赖**: adm-zip, better-sqlite3, dayjs, electron-updater, express, sharp, uuid 及开发依赖
-**最后更新**: 2026-04-22 · 版本升级至 0.3.3，Windows 安装包已发布到 GitHub Release
+**最后更新**: 2026-04-22 · 版本升级至 0.3.4，Windows 安装包已发布到 GitHub Release（v0.3.4）
