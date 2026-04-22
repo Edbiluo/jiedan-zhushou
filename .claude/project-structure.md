@@ -1,11 +1,11 @@
 # 项目结构 · 接单助手
-更新时间: 2026-04-22 20:15 · 发布 v0.3.4：Calendar/MainLayout 高度修复，清缓存全量重编译，发布到 GitHub Release
+更新时间: 2026-04-23 01:25 · 修复 v0.3.5：MainLayout overflow-auto 恢复，解决生产白屏，发布 GitHub Release
 
 ## 进度总览
 - ✅ 完成: 47 个文件
 - 🔄 进行中: 0 个文件
 - 📋 待开发: 0 个文件
-- 当前 sprint: v0.3.4版本发布完成，pending git push
+- 当前 sprint: v0.3.5 版本发布完成，白屏问题已修复
 
 ---
 
@@ -235,10 +235,10 @@
 
 ## frontend/src/layouts/MainLayout.vue
 **状态**: ✅ 完成
-**功能**: 主布局组件，左侧导航栏（6 个主导航）、顶部页面标题栏、右侧内容区路由视图、自动更新徽章；内容区采用 flex 布局，header shrink-0，路由视图区 flex-1 min-h-0 overflow-hidden；padding 由各页面自行管理，避免 overflow-auto 嵌套冲突
+**功能**: 主布局组件，左侧导航栏（6 个主导航）、顶部页面标题栏、右侧内容区路由视图、自动更新徽章；内容区采用 flex 布局，header shrink-0，路由视图区 flex-1 min-h-0 overflow-auto；padding p-6 确保内容有合理间距且可滚动
 **对外接口**: 导出主布局组件，集成导航和路由出口
 **关键依赖**: vue-router, frontend/src/components/UpdateBadge.vue
-**最后更新**: 2026-04-22 · 移除内容区的 px-8 pt-8 overflow-auto，简化为 flex-1 min-h-0 overflow-hidden
+**最后更新**: 2026-04-23 · 修复白屏问题：overflow-hidden 改为 overflow-auto，添加 p-6 padding
 
 ## frontend/src/components/BookCard.vue
 **状态**: ✅ 完成
@@ -361,7 +361,7 @@
 
 ## package.json
 **状态**: ✅ 完成
-**功能**: 项目元数据和依赖配置（名称 jiedan-zhushou、版本 0.3.4、npm scripts、electron-builder 配置、GitHub 发布配置）
+**功能**: 项目元数据和依赖配置（名称 jiedan-zhushou、版本 0.3.5、npm scripts、electron-builder 配置、GitHub 发布配置）
 **对外接口**: npm 脚本（dev, build, dev:frontend, dev:electron 等）
 **关键依赖**: adm-zip, better-sqlite3, dayjs, electron-updater, express, sharp, uuid 及开发依赖
-**最后更新**: 2026-04-22 · 版本升级至 0.3.4，Windows 安装包已发布到 GitHub Release（v0.3.4）
+**最后更新**: 2026-04-23 · 版本升级至 0.3.5，Windows 安装包已发布到 GitHub Release（v0.3.5），白屏修复版本
