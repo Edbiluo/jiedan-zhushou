@@ -130,3 +130,4 @@ function stopServer() {
 }
 
 module.exports = { startServer, stopServer, buildRouter };
+// 架构v2 initialized

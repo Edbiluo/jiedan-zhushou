@@ -1,5 +1,5 @@
 # 项目结构 · 接单助手
-更新时间: 2026-04-22
+更新时间: 2026-04-22 14:22:00 · 架构v2初始化标记
 
 ## 进度总览
 - ✅ 完成: 47 个文件
@@ -35,7 +35,7 @@
 **功能**: Express 后端服务器，定义 RESTful API 路由（settings, styles, sizes, pages, books, schedules, inspirations, day_tasks, leaves, day_log, stats）
 **对外接口**: startServer, stopServer, buildRouter, wrap (error handler)
 **关键依赖**: express, fs, path, backend/services
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-04-22 · 架构v2初始化标记
 
 ## backend/schema.sql
 **状态**: ✅ 完成
