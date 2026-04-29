@@ -164,4 +164,5 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('near_deadline_days', '3'),
   ('theme', 'cream-blue'),
   ('notification_enabled', '1'),
-  ('schema_version', '3');
+  ('schema_version', '3'),
+  ('app_name', '小猪的接单小助手');

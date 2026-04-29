@@ -117,7 +117,8 @@ export interface Settings {
   theme: string;
   notification_enabled: string;
   schema_version: string;
-  [k: string]: string;
+  app_name?: string;
+  [k: string]: string | undefined;
 }
 
 export interface StatsSummary {

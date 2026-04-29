@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pickImages: () => ipcRenderer.invoke('file:pickImages'),
   exportBackup: () => ipcRenderer.invoke('file:exportBackup'),
   importBackup: () => ipcRenderer.invoke('file:importBackup'),
+  setTitle: (title) => ipcRenderer.invoke('app:setTitle', title),
   apiBase: 'http://localhost:3899',
 
   // 用 File 对象取本地路径（拖拽场景用，Electron 32+ 推荐 webUtils）

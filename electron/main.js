@@ -68,8 +68,14 @@ function scheduleDailyReminder() {
       const today = new Date().toISOString().slice(0, 10);
       const reported = services.dayLog.isReported(today);
       if (!reported) {
+        let appName = '小猪的接单小助手';
+        try {
+          const db = getDb();
+          const row = db.prepare("SELECT value FROM settings WHERE key = 'app_name'").get();
+          if (row && row.value) appName = row.value;
+        } catch (e) { /* ignore */ }
         new Notification({
-          title: '接单助手',
+          title: appName,
           body: '今天画得怎么样？来填一下今日完成吧～',
         }).show();
       }
@@ -162,6 +168,12 @@ function registerIpc() {
     if (result.canceled || result.filePaths.length === 0) return null;
     return services.backup.importFrom(result.filePaths[0]);
   });
+
+  ipcMain.handle('app:setTitle', (_e, title) => {
+    if (mainWindow && !mainWindow.isDestroyed() && typeof title === 'string') {
+      mainWindow.setTitle(title);
+    }
+  });
 }
 
 app.whenReady().then(() => {
@@ -171,6 +183,16 @@ app.whenReady().then(() => {
   startServer(3899);
   registerIpc();
   createWindow();
+  // 启动时从 DB 读取 app_name 并设置窗口标题
+  try {
+    const db = getDb();
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'app_name'").get();
+    if (row && row.value && mainWindow) {
+      mainWindow.setTitle(row.value);
+    }
+  } catch (e) {
+    console.warn('read app_name failed:', e.message);
+  }
   scheduleDailyReminder();
   setupAutoUpdater();
 });

@@ -144,6 +144,13 @@ function runMigrations(d) {
 
   if (current < 2) migrateToV2(d);
   if (current < 3) migrateToV3(d);
+
+  // 保证旧库也有 app_name 默认值（新库由 schema.sql 的 INSERT OR IGNORE 覆盖）
+  try {
+    d.prepare(
+      `INSERT OR IGNORE INTO settings (key, value) VALUES ('app_name', '小猪的接单小助手')`
+    ).run();
+  } catch (e) { console.warn('app_name migration skip:', e.message); }
 }
 
 function initDb(targetPath) {

@@ -2,9 +2,12 @@
 import { RouterLink, RouterView, useRoute } from 'vue-router';
 import { computed } from 'vue';
 import UpdateBadge from '@/components/UpdateBadge.vue';
+import { useSettingsStore } from '@/stores/settings';
 
 const route = useRoute();
 const pageTitle = computed(() => (route.meta?.title as string) || '接单助手');
+const settingsStore = useSettingsStore();
+const appName = computed(() => settingsStore.settings.app_name || '小猪的接单小助手');
 
 const navs = [
   { to: '/calendar',     label: '日历看板', icon: '📅' },
@@ -20,7 +23,7 @@ const navs = [
   <div class="h-full grid" style="grid-template-columns: 220px 1fr;">
     <aside class="bg-cream-200/50 border-r border-cream-300/40 py-6 px-4 flex flex-col">
       <div class="mb-8 px-2">
-        <h1 class="text-xl text-brand-700">接单助手</h1>
+        <h1 class="text-xl text-brand-700">{{ appName }}</h1>
         <p class="text-xs text-ink-500 mt-1">一起好好画画 ✿</p>
       </div>
       <nav class="flex flex-col gap-1">

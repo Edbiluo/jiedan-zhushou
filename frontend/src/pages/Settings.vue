@@ -6,10 +6,23 @@ const settings = useSettingsStore();
 const newStyle = ref('');
 const newSize = ref('');
 const message = ref('');
+const appNameInput = ref('');
 
 onMounted(async () => {
   if (!settings.loaded) await settings.load();
+  appNameInput.value = settings.settings.app_name || '小猪的接单小助手';
 });
+
+async function saveAppName() {
+  const name = appNameInput.value.trim();
+  if (!name) return;
+  await settings.update({ app_name: name });
+  // 同步更新窗口标题
+  if ((window as any).electronAPI?.setTitle) {
+    (window as any).electronAPI.setTitle(name);
+  }
+  toast('应用名称已保存');
+}
 
 async function updateReminder(v: string) {
   await settings.update({ reminder_time: v });
@@ -51,6 +64,20 @@ function toast(m: string) { message.value = m; setTimeout(() => (message.value =
 
 <template>
   <div class="space-y-4 max-w-3xl">
+    <div class="card">
+      <h3 class="text-lg text-brand-700 mb-3">应用名称</h3>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs text-ink-500">显示在侧边栏和窗口标题栏</label>
+          <input v-model="appNameInput" type="text" class="input" placeholder="小猪的接单小助手"
+                 @keyup.enter="saveAppName" />
+        </div>
+        <div class="flex items-end">
+          <button class="btn-primary" @click="saveAppName">保存</button>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <h3 class="text-lg text-brand-700 mb-3">提醒</h3>
       <div class="grid grid-cols-2 gap-4 mb-3">
