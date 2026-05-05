@@ -83,6 +83,6 @@ export const api = {
     remove: (id: number) => http.del<{ id: number }>(`/inspirations/${id}`),
   },
   stats: {
-    summary: (from: string, to: string) => http.get<StatsSummary>(`/stats/summary?from=${from}&to=${to}`),
+    summary: (fromDate: string, toDate: string) => http.get<StatsSummary>(`/stats/summary?fromDate=${fromDate}&toDate=${toDate}`),
   },
 };

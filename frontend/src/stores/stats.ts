@@ -7,8 +7,8 @@ export const useStatsStore = defineStore('stats', {
     summary: null as StatsSummary | null,
   }),
   actions: {
-    async load(from: string, to: string) {
-      this.summary = await api.stats.summary(from, to);
+    async load(fromDate: string, toDate: string) {
+      this.summary = await api.stats.summary(fromDate, toDate);
       return this.summary;
     },
   },

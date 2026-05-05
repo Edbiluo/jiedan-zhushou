@@ -127,6 +127,8 @@ export interface StatsSummary {
   style_distribution: { style_name: string; page_count: number }[];
   completed_book_count: { month: string; cnt: number }[];
   avg_page_hours: { month: string; avg_hours: number; samples: number }[];
+  pending_income: { count: number; amount: number };
+  monthly_comparison: { month: string; completed_amount: number; pending_amount: number; total_amount: number }[];
 }
 
 export interface CreateBookInput {

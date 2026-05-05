@@ -106,7 +106,13 @@ function buildRouter() {
   app.post('/api/day-log/:date', wrap((req) => services.dayLog.report(req.params.date, req.body)));
 
   // stats
-  app.get('/api/stats/summary', wrap((req) => services.stats.summary(req.query.from, req.query.to)));
+  app.get('/api/stats/summary', wrap((req) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const fromDate = req.query.fromDate || oneYearAgo;
+    const toDate = req.query.toDate || today;
+    return services.stats.summary(fromDate, toDate);
+  }));
 
   // health
   app.get('/api/health', (_, res) => res.json({ ok: true, version: '0.1.0' }));
