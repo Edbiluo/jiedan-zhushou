@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { useSettingsStore } from '@/stores/settings';
+import { CHANGELOG } from '@/data/changelog';
 
 const settings = useSettingsStore();
 const newStyle = ref('');
 const newSize = ref('');
 const message = ref('');
 const appNameInput = ref('');
+const currentVersion = ref('');
 
 onMounted(async () => {
   if (!settings.loaded) await settings.load();
   appNameInput.value = settings.settings.app_name || '小猪的接单小助手';
+  if ((window as any).electronAPI?.getVersion) {
+    currentVersion.value = await (window as any).electronAPI.getVersion();
+  }
 });
 
 async function saveAppName() {
@@ -138,6 +143,27 @@ function toast(m: string) { message.value = m; setTimeout(() => (message.value =
         <button class="btn-ghost" @click="importBackup">📥 从备份恢复</button>
       </div>
       <p class="text-xs text-ink-500 mt-2">备份包含画页图片 + 数据库。恢复会覆盖现有数据。</p>
+    </div>
+
+    <div class="card">
+      <h3 class="text-lg text-brand-700 mb-3">版本更新记录</h3>
+      <div v-for="(entry, idx) in CHANGELOG" :key="entry.version">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="font-semibold text-ink-800">{{ entry.version }}</span>
+          <span
+            v-if="currentVersion && entry.version === `v${currentVersion}`"
+            class="text-xs px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700 font-medium leading-none"
+          >当前版本</span>
+          <span class="text-xs text-ink-400">{{ entry.date }}</span>
+        </div>
+        <ul class="mb-1 pl-1 space-y-0.5">
+          <li v-for="item in entry.items" :key="item" class="text-sm text-ink-600 flex gap-1.5">
+            <span class="text-ink-400 select-none">·</span>
+            <span>{{ item }}</span>
+          </li>
+        </ul>
+        <hr v-if="idx < CHANGELOG.length - 1" class="my-3 border-ink-100" />
+      </div>
     </div>
 
     <Teleport to="body">
