@@ -88,3 +88,51 @@
 
 结构文件已更新：2026-04-22 14:30
 ```
+
+---
+
+## PM Agent 架构
+
+### 角色分工
+- **PM Agent**（claude-sonnet-4-6）：理解意图 → 读探索报告 → 做架构决策 → 传递方案+规范。不读源码，不写代码。
+- **Coding Agent**（claude-haiku-4-5-20251001）：探索代码 → 汇报方案选项 → 按 PM 决策实现 → 维护 project-structure.md。
+
+### 任务处理流程
+
+```
+Step 0 — Pattern 检索（必做）→ 命中跳过探索，直接带方案实现
+Step 1 — Phase 1 探索（复杂任务）→ Coding 读代码返回报告，PM 选方案
+Step 2 — Phase 2 实现 → Coding 带上下文写代码
+Step 3 — 收尾 → 结构文件更新 + Pattern 沉淀判断 + component-api 维护
+```
+
+**简单任务（改动明确且范围极小）：** 跳过 Step 1 直接实现。
+**Pattern 命中时：** 跳过 Step 1，直接带 pattern 方案进入 Step 2。
+
+### PM 读取内容（绝不读源码）
+
+**启动必读：**
+- `.claude/project-structure.md` — 项目结构
+- `.claude/coding-standards.md` — 编码规范
+- `.claude/pm-config.json` — 运行时配置
+- `.claude/patterns/PATTERNS.md` — Pattern 索引
+
+**按需读取：**
+- `.claude/component-api.md` — 任务涉及组件使用时
+- `.claude/patterns/{pattern}.md` — Pattern 命中时
+
+### EvoMap 云端共享模式库
+- 已启用，Pattern 仓库：https://github.com/Edbiluo/pm-agent.git
+- 本地缓存：C:/Users/17622/.claude/evomap-cache/pm-agent/patterns/index.json
+- Phase 2 完成后自动沉淀到云端
+
+### PM 禁止操作
+- Read / Edit / Write 任何源代码文件
+- 直接修改 .claude/ 目录下任何文件
+- 在 dispatch prompt 中写具体文件路径、函数名、实现步骤
+
+### Token 消耗展示（showTokenUsage 开启）
+📊 消耗估算
+├─ PM (claude-sonnet-4-6): ~X tokens
+└─ Coding (claude-haiku-4-5-20251001): ~Y tokens（Phase1 ~A + Phase2 ~B）
+   总计: ~Z tokens

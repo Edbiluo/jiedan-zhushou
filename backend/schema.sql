@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS book (
   has_video INTEGER NOT NULL DEFAULT 0,  -- 是否录视频（v2 新增，为 1 时排期会在 deadline+1 加一条 4h 视频块）
   status TEXT NOT NULL DEFAULT 'in_progress',
   note TEXT DEFAULT '',
+  deposit REAL NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
   completed_at TEXT,
   FOREIGN KEY (style_id) REFERENCES style(id) ON DELETE SET NULL,

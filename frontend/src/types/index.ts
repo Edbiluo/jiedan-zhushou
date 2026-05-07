@@ -38,6 +38,7 @@ export interface Book {
   id: Id;
   title: string;
   unit_price: number;
+  deposit: number;
   start_date: string | null;
   deadline: string;
   page_count: number;
@@ -129,11 +130,15 @@ export interface StatsSummary {
   avg_page_hours: { month: string; avg_hours: number; samples: number }[];
   pending_income: { count: number; amount: number };
   monthly_comparison: { month: string; completed_amount: number; pending_amount: number; total_amount: number }[];
+  total_amount: { amount: number; count: number };
+  total_deposit: { amount: number };
+  pending_receivable: { amount: number; count: number };
 }
 
 export interface CreateBookInput {
   title: string;
   unit_price: number;
+  deposit?: number;
   start_date: string;
   deadline: string;
   page_count: number;

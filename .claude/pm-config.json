@@ -1,0 +1,11 @@
+{
+  "pmModel": "claude-sonnet-4-6",
+  "codeModel": "claude-haiku-4-5-20251001",
+  "showTokenUsage": true,
+  "evomap": {
+    "enabled": true,
+    "repo": "https://github.com/Edbiluo/pm-agent.git",
+    "cachePath": "$HOME/.claude/evomap-cache/pm-agent",
+    "branch": "main"
+  }
+}

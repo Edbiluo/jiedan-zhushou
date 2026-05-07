@@ -6,6 +6,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.4.0',
+    date: '2026-05-07',
+    items: [
+      '日报弹窗提交时同步标记本为已完成',
+      '日历看板排期改为彩色 emoji 图标展示',
+      '本管理新增定金字段',
+      '稿费统计新增总金额、总定金、待收金额统计',
+      '修复已完成的本显示延期的 bug',
+      '修复统计新字段数据为0的问题',
+    ],
+  },
+  {
     version: 'v0.3.9',
     date: '2026-05-05',
     items: ['设置页新增版本更新记录，展示历史版本号与更新内容'],

@@ -8,7 +8,7 @@ import { useSettingsStore } from '@/stores/settings';
 import { useDayTasksStore } from '@/stores/dayTasks';
 import { useInspirationsStore } from '@/stores/inspirations';
 import type { Book, DayTask, DayTaskKind, Inspiration, Schedule } from '@/types';
-import { bookGradient, bookSolid, bookInk, TASK_PALETTE } from '@/utils/palette';
+import { bookSolid, bookIcon, TASK_PALETTE } from '@/utils/palette';
 
 const schedule = useScheduleStore();
 const settings = useSettingsStore();
@@ -27,7 +27,7 @@ const gridEnd = computed(() => cursor.value.endOf('month').endOf('week').add(1, 
 const todayStr = dayjs().format('YYYY-MM-DD');
 
 const weeks = computed(() => {
-  const out: { start: Dayjs; days: { date: string; inMonth: boolean; dayNum: number; weekday: number }[] }[] = [];
+  const out: { start: Dayjs; days: { date: string; inMonth: boolean; dayNum: number }[] }[] = [];
   let d = gridStart.value;
   while (d.isBefore(gridEnd.value)) {
     const row = { start: d, days: [] as any[] };
@@ -37,7 +37,6 @@ const weeks = computed(() => {
         date: cur.format('YYYY-MM-DD'),
         inMonth: cur.month() === cursor.value.month(),
         dayNum: cur.date(),
-        weekday: i,
       });
     }
     out.push(row);
@@ -72,75 +71,6 @@ watch(cursor, refresh);
 function prev() { cursor.value = cursor.value.subtract(1, 'month'); }
 function next() { cursor.value = cursor.value.add(1, 'month'); }
 function jumpToday() { cursor.value = dayjs(); selectDay(todayStr); }
-
-// ============ 条带布局 ============
-interface Bar { book: Book; weekIdx: number; colStart: number; colEnd: number; lane: number; isStart: boolean; isEnd: boolean; completed: boolean; }
-interface VideoBlock { book: Book; weekIdx: number; col: number; is_done: boolean; }
-
-function computeBars() {
-  const bars: Bar[][] = weeks.value.map(() => []);
-  const videos: VideoBlock[][] = weeks.value.map(() => []);
-  const laneCount: number[] = weeks.value.map(() => 0);
-  const sortedBooks = [...books.value]
-    .filter((b) => b.start_date && b.deadline)
-    .sort((a, b) => {
-      const sa = a.start_date || '';
-      const sb = b.start_date || '';
-      if (sa !== sb) return sa < sb ? -1 : 1;
-      return a.id - b.id;
-    });
-
-  weeks.value.forEach((w, wi) => {
-    const weekStart = w.start;
-    const weekEnd = w.start.add(6, 'day');
-    const lanes: string[] = [];
-    const weekBars: Bar[] = [];
-    for (const b of sortedBooks) {
-      const bs = dayjs(b.start_date!);
-      const be = dayjs(b.deadline);
-      if (be.isBefore(weekStart) || bs.isAfter(weekEnd)) continue;
-      const segStart = bs.isBefore(weekStart) ? weekStart : bs;
-      const segEnd = be.isAfter(weekEnd) ? weekEnd : be;
-      const col0 = segStart.diff(weekStart, 'day');
-      const col1 = segEnd.diff(weekStart, 'day');
-      let lane = -1;
-      for (let i = 0; i < lanes.length; i++) {
-        if (!lanes[i] || lanes[i] < segStart.format('YYYY-MM-DD')) { lane = i; break; }
-      }
-      if (lane < 0) { lane = lanes.length; lanes.push(''); }
-      lanes[lane] = segEnd.format('YYYY-MM-DD');
-      const doneOn = (d: string) => !!schedulesByBookDate.value.get(`${b.id}:${d}:book`)?.is_done;
-      let allDone = true;
-      let cur = segStart;
-      while (cur.isBefore(segEnd) || cur.isSame(segEnd, 'day')) {
-        if (!doneOn(cur.format('YYYY-MM-DD'))) { allDone = false; break; }
-        cur = cur.add(1, 'day');
-      }
-      weekBars.push({
-        book: b, weekIdx: wi,
-        colStart: col0, colEnd: col1, lane,
-        isStart: !bs.isBefore(weekStart),
-        isEnd: !be.isAfter(weekEnd),
-        completed: allDone || b.status === 'completed',
-      });
-    }
-    laneCount[wi] = lanes.length;
-    bars[wi] = weekBars;
-
-    for (const b of sortedBooks) {
-      if (!b.has_video) continue;
-      const vDate = dayjs(b.deadline).add(1, 'day');
-      if (vDate.isBefore(weekStart) || vDate.isAfter(weekEnd)) continue;
-      const col = vDate.diff(weekStart, 'day');
-      const s = schedulesByBookDate.value.get(`${b.id}:${vDate.format('YYYY-MM-DD')}:video`);
-      videos[wi].push({ book: b, weekIdx: wi, col, is_done: !!s?.is_done });
-    }
-  });
-
-  return { bars, videos, laneCount };
-}
-
-const layout = computed(() => computeBars());
 
 function bookDoneOnDate(bookId: number, date: string) {
   return !!schedulesByBookDate.value.get(`${bookId}:${date}:book`)?.is_done;
@@ -184,65 +114,35 @@ async function toggleLeaveForCell(date: string) {
 
 function openBook(book: Book) { router.push(`/books/${book.id}`); }
 
-function barStyle(bar: Bar) {
-  return {
-    background: bookGradient(bar.book.id),
-    color: bookInk(bar.book.id),
-    opacity: bar.completed ? 0.5 : 1,
-    borderTopLeftRadius: bar.isStart ? '9999px' : '3px',
-    borderBottomLeftRadius: bar.isStart ? '9999px' : '3px',
-    borderTopRightRadius: bar.isEnd ? '9999px' : '3px',
-    borderBottomRightRadius: bar.isEnd ? '9999px' : '3px',
-  };
-}
-function videoStyle(v: VideoBlock) {
-  return { background: bookSolid(v.book.id), color: bookInk(v.book.id), opacity: v.is_done ? 0.5 : 1 };
+// ============ 日期格子排期彩条 ============
+function daySchedules(date: string): { book_id: number; book_title: string; kind: 'book' | 'video'; is_done: boolean }[] {
+  const out: { book_id: number; book_title: string; kind: 'book' | 'video'; is_done: boolean }[] = [];
+  for (const b of books.value) {
+    if (!b.start_date) continue;
+    if (date >= b.start_date && date <= b.deadline) {
+      out.push({
+        book_id: b.id,
+        book_title: b.title,
+        kind: 'book',
+        is_done: bookDoneOnDate(b.id, date),
+      });
+    }
+    if (b.has_video && dayjs(b.deadline).add(1, 'day').format('YYYY-MM-DD') === date) {
+      const s = schedulesByBookDate.value.get(`${b.id}:${date}:video`);
+      out.push({
+        book_id: b.id,
+        book_title: b.title + ' · 录视频',
+        kind: 'video',
+        is_done: !!s?.is_done,
+      });
+    }
+  }
+  return out;
 }
 
 // 间隙常量（日与日之间）
 const CELL_GAP = 8;   // px
-const DAY_HEADER_H = 30;
-const LANE_H = 22;
-const LANE_GAP = 4;
-const TASK_ROW_H = 20; // 每条任务徽章占高（含行间距）
 const MAX_TASK_ROWS = 3;
-
-// 某周"本条带 + 视频块"总高度
-function barsZoneHeight(wi: number) {
-  const lanes = layout.value.laneCount[wi] || 0;
-  const videoRow = layout.value.videos[wi].length > 0 ? 1 : 0;
-  return (lanes + videoRow) * (LANE_H + LANE_GAP);
-}
-
-// 任务徽章起始 top（紧跟 bar 区下方）
-function tasksTop(wi: number) {
-  return DAY_HEADER_H + barsZoneHeight(wi) + 6;
-}
-
-// 按内容算每周总高度（自适应）
-function weekHeight(wi: number) {
-  const tasksMax = weeks.value[wi].days
-    .map((d) => Math.min(MAX_TASK_ROWS, dayTasks.byDate[d.date]?.length || 0))
-    .reduce((a, b) => Math.max(a, b), 0);
-  const hasOverflow = weeks.value[wi].days.some((d) => (dayTasks.byDate[d.date]?.length || 0) > MAX_TASK_ROWS);
-  return DAY_HEADER_H + barsZoneHeight(wi) + 6
-       + tasksMax * TASK_ROW_H
-       + (hasOverflow ? 16 : 0)
-       + 10; // 底部留白
-}
-
-// 条带位置计算：容器宽度按"7列等宽 + 6 个 gap"切分
-// left = colStart * (cellW + gap)，width = (colEnd-colStart+1) * cellW + (colEnd-colStart) * gap
-// 用 calc 把百分比 cellW 与 px gap 混合
-function colLeft(colStart: number) {
-  // colStart * (cellW + gap) = colStart * cellW + colStart * gap
-  // cellW = (100% - 6*gap) / 7
-  return `calc(${colStart} * ((100% - ${6 * CELL_GAP}px) / 7) + ${colStart * CELL_GAP}px)`;
-}
-function colWidth(span: number) {
-  // span * cellW + (span-1) * gap
-  return `calc(${span} * ((100% - ${6 * CELL_GAP}px) / 7) + ${(span - 1) * CELL_GAP}px)`;
-}
 
 
 // ============ 日抽屉 ============
@@ -401,71 +301,33 @@ async function markAllBooksDoneToday() {
                   {{ schedule.isLeave(d.date) ? '✓ 休' : '休' }}
                 </button>
               </div>
-            </div>
-          </div>
-
-          <!-- 本的条带（absolute 定位，用 calc 跨越 gap）-->
-          <div class="absolute left-0 right-0 pointer-events-none" :style="{ top: DAY_HEADER_H + 'px' }">
-            <div v-for="bar in layout.bars[wi]" :key="`b${bar.book.id}_${wi}`"
-                 class="absolute pointer-events-auto cursor-pointer group"
-                 :style="{
-                   left: colLeft(bar.colStart),
-                   width: colWidth(bar.colEnd - bar.colStart + 1),
-                   top: (bar.lane * (LANE_H + LANE_GAP)) + 'px',
-                   height: LANE_H + 'px',
-                 }"
-                 :title="`${bar.book.title} · ${bar.book.start_date} → ${bar.book.deadline}`"
-                 @click.stop="openBook(bar.book)">
-              <div class="h-full px-3 flex items-center gap-1.5 shadow-soft transition hover:brightness-105 hover:-translate-y-px"
-                   :style="barStyle(bar)">
-                <span v-if="bar.isStart" class="text-xs leading-none truncate font-medium">{{ bar.book.title }}</span>
-                <span v-if="bar.completed" class="text-xs leading-none ml-auto">✓</span>
+              <!-- 排期 emoji 图标 -->
+              <div class="px-1 mt-0.5 flex flex-col gap-[1px] overflow-hidden">
+                <div
+                  v-for="item in daySchedules(d.date).slice(0, 3)"
+                  :key="item.book_id + item.kind"
+                  class="text-[11px] leading-tight truncate"
+                  :style="{ opacity: item.is_done ? 0.35 : 1 }"
+                  :title="item.book_title"
+                >{{ bookIcon(item.book_id) }}</div>
+                <div
+                  v-if="daySchedules(d.date).length > 3"
+                  class="text-[9px] leading-none text-ink-400 text-right pr-0.5"
+                >+{{ daySchedules(d.date).length - 3 }}</div>
               </div>
-            </div>
-
-            <!-- 视频块 -->
-            <div v-for="(v, vi) in layout.videos[wi]" :key="`v${wi}_${vi}`"
-                 class="absolute pointer-events-auto cursor-pointer"
-                 :style="{
-                   left: colLeft(v.col),
-                   width: colWidth(1),
-                   top: (layout.laneCount[wi] * (LANE_H + LANE_GAP)) + 'px',
-                   height: LANE_H + 'px',
-                 }"
-                 :title="`${v.book.title} · 录视频`"
-                 @click.stop="toggleVideoDone(v.book.id, dayjs(v.book.deadline).add(1,'day').format('YYYY-MM-DD'))">
-              <div class="h-full px-2 rounded-full flex items-center justify-center gap-1 shadow-soft"
-                   :style="videoStyle(v)">
-                <span class="text-xs">🎬</span>
-                <span class="text-xs truncate font-medium">视频</span>
-                <span v-if="v.is_done" class="text-xs">✓</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 每日创作/剪辑小徽章（紧跟 bar 区下方，避免与 bar 撞） -->
-          <template v-for="d in w.days" :key="`t${d.date}`">
-            <div v-if="dayTasks.byDate[d.date]?.length"
-                 class="absolute pointer-events-none"
-                 :style="{
-                   left: colLeft(d.weekday),
-                   width: colWidth(1),
-                   top: tasksTop(wi) + 'px',
-                   paddingLeft: '6px',
-                   paddingRight: '6px',
-                 }">
-              <div class="space-y-0.5">
+              <!-- 当日任务徽章 -->
+              <div v-if="dayTasks.byDate[d.date]?.length" class="px-1 mt-0.5 flex flex-col gap-[2px] overflow-hidden">
                 <div v-for="t in dayTasks.byDate[d.date]?.slice(0, MAX_TASK_ROWS)" :key="t.id"
-                     class="text-xs leading-[16px] px-2 py-0.5 rounded-full truncate font-medium"
+                     class="text-[10px] leading-[15px] px-1.5 rounded-full truncate font-medium"
                      :style="taskChipStyle(t.kind, !!t.is_done, d.date)">
                   <span v-if="t.kind === 'creation'">✨</span><span v-else>🎬</span>
                   {{ t.title || (t.kind === 'creation' ? '创作' : '剪辑') }}
                 </div>
                 <div v-if="(dayTasks.byDate[d.date]?.length || 0) > MAX_TASK_ROWS"
-                     class="text-xs text-ink-500 px-2">+{{ (dayTasks.byDate[d.date]?.length || 0) - MAX_TASK_ROWS }}</div>
+                     class="text-[9px] text-ink-500 px-1.5">+{{ (dayTasks.byDate[d.date]?.length || 0) - MAX_TASK_ROWS }}</div>
               </div>
             </div>
-          </template>
+          </div>
         </div>
       </div>
     </div>

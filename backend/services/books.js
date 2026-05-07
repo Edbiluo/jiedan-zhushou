@@ -37,15 +37,17 @@ function hydrate(book) {
        WHERE bp.book_id = ? ORDER BY bp.sort_order, p.id`
     )
     .all(book.id);
-  const done = isBookDone(book.id);
-  const computed = computeStatus(book, done);
-  if (computed !== book.status) {
-    getDb().prepare('UPDATE book SET status = ? WHERE id = ?').run(computed, book.id);
-    book.status = computed;
-    if (computed === 'completed' && !book.completed_at) {
-      const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
-      getDb().prepare('UPDATE book SET completed_at = ? WHERE id = ?').run(now, book.id);
-      book.completed_at = now;
+  if (book.status !== 'completed') {
+    const done = isBookDone(book.id);
+    const computed = computeStatus(book, done);
+    if (computed !== book.status) {
+      getDb().prepare('UPDATE book SET status = ? WHERE id = ?').run(computed, book.id);
+      book.status = computed;
+      if (computed === 'completed' && !book.completed_at) {
+        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        getDb().prepare('UPDATE book SET completed_at = ? WHERE id = ?').run(now, book.id);
+        book.completed_at = now;
+      }
     }
   }
   return { ...book, pages };
@@ -116,6 +118,7 @@ function create({
   sided = 'single',
   has_video = 0,
   note = '',
+  deposit = 0,
   page_ids = [],
 }) {
   if (!title) throw new Error('title required');
@@ -126,9 +129,9 @@ function create({
     const info = db
       .prepare(
         `INSERT INTO book (title, unit_price, start_date, deadline, page_count,
-                           size_id, style_id, sided, has_video, status, note)
+                           size_id, style_id, sided, has_video, status, note, deposit)
          VALUES (@title, @unit_price, @start_date, @deadline, @page_count,
-                 @size_id, @style_id, @sided, @has_video, 'in_progress', @note)`
+                 @size_id, @style_id, @sided, @has_video, 'in_progress', @note, @deposit)`
       )
       .run({
         title,
@@ -141,6 +144,7 @@ function create({
         sided: sided === 'double' ? 'double' : 'single',
         has_video: has_video ? 1 : 0,
         note: note || '',
+        deposit: deposit || 0,
       });
     const bookId = info.lastInsertRowid;
 
@@ -178,6 +182,7 @@ function update(id, body) {
     sided: body.sided ?? cur.sided,
     has_video: body.has_video != null ? (body.has_video ? 1 : 0) : cur.has_video,
     note: body.note ?? cur.note,
+    deposit: body.deposit ?? cur.deposit,
   };
 
   // 日期变动时校验（允许保持原值即使早于今天——不强退已有本）
@@ -194,7 +199,7 @@ function update(id, body) {
     db.prepare(
       `UPDATE book SET title=@title, unit_price=@unit_price, start_date=@start_date,
          deadline=@deadline, page_count=@page_count,
-         size_id=@size_id, style_id=@style_id, sided=@sided, has_video=@has_video, note=@note
+         size_id=@size_id, style_id=@style_id, sided=@sided, has_video=@has_video, note=@note, deposit=@deposit
        WHERE id=@id`
     ).run({ id, ...merged });
 

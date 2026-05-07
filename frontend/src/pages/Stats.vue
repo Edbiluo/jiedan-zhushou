@@ -54,6 +54,11 @@ const avgPrice = computed(() => stats.summary?.average_price?.avg_price || 0);
 const totalBooks = computed(() => stats.summary?.average_price?.count || 0);
 const pendingAmount = computed(() => stats.summary?.pending_income?.amount || 0);
 const pendingCount = computed(() => stats.summary?.pending_income?.count || 0);
+const totalAmount = computed(() => stats.summary?.total_amount?.amount || 0);
+const totalAmountCount = computed(() => stats.summary?.total_amount?.count || 0);
+const totalDeposit = computed(() => stats.summary?.total_deposit?.amount || 0);
+const pendingReceivable = computed(() => stats.summary?.pending_receivable?.amount || 0);
+const pendingReceivableCount = computed(() => stats.summary?.pending_receivable?.count || 0);
 
 function fmtMoney(v: number | undefined | null) {
   return `¥${(v || 0).toLocaleString()}`;
@@ -227,6 +232,22 @@ const comparisonOption = computed(() => {
       <div>
         <div class="text-2xl text-brand-700">✿</div>
         <div class="text-xs text-ink-500">加油画画</div>
+      </div>
+    </div>
+
+    <!-- 金额汇总卡片（第二行） -->
+    <div class="card grid grid-cols-3 text-center gap-4">
+      <div>
+        <div class="text-2xl text-brand-700">{{ fmtMoney(totalAmount) }}</div>
+        <div class="text-xs text-ink-500">总金额（{{ totalAmountCount }}本）</div>
+      </div>
+      <div>
+        <div class="text-2xl text-green-600">{{ fmtMoney(totalDeposit) }}</div>
+        <div class="text-xs text-ink-500">总定金</div>
+      </div>
+      <div>
+        <div class="text-2xl text-rose-500">{{ fmtMoney(pendingReceivable) }}</div>
+        <div class="text-xs text-ink-500">待收金额（{{ pendingReceivableCount }}本）</div>
       </div>
     </div>
 

@@ -110,6 +110,26 @@ function monthlyComparison(fromDate, toDate) {
 }
 
 function summary(fromDate, toDate) {
+  // 总金额/总定金/待收金额：查全库，不受日期过滤限制
+  const totalAmountRow = getDb()
+    .prepare(
+      `SELECT SUM(unit_price) as amount, COUNT(*) as count FROM book`
+    )
+    .get();
+
+  const totalDepositRow = getDb()
+    .prepare(
+      `SELECT SUM(COALESCE(deposit, 0)) as amount FROM book`
+    )
+    .get();
+
+  const pendingReceivableRow = getDb()
+    .prepare(
+      `SELECT SUM(unit_price - COALESCE(deposit, 0)) as amount, COUNT(*) as count FROM book
+       WHERE status != 'completed'`
+    )
+    .get();
+
   return {
     monthly_income: monthlyIncome(fromDate, toDate),
     average_price: averagePrice(fromDate, toDate),
@@ -118,6 +138,9 @@ function summary(fromDate, toDate) {
     avg_page_hours: [],
     pending_income: pendingIncome(),
     monthly_comparison: monthlyComparison(fromDate, toDate),
+    total_amount: { amount: totalAmountRow?.amount || 0, count: totalAmountRow?.count || 0 },
+    total_deposit: { amount: totalDepositRow?.amount || 0 },
+    pending_receivable: { amount: pendingReceivableRow?.amount || 0, count: pendingReceivableRow?.count || 0 },
   };
 }
 

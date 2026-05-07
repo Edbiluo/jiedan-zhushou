@@ -27,7 +27,7 @@ async function load() {
     ]);
     items.value = list || [];
     const init: Record<number, boolean> = {};
-    for (const s of items.value) init[s.id] = !!s.is_done || true;
+    for (const s of items.value) init[s.id] = !!s.is_done;
     checked.value = init;
     if ((logRes as any)?.notes) notes.value = (logRes as any).notes;
   } finally {
@@ -42,11 +42,15 @@ function close() { emit('update:modelValue', false); }
 async function submit() {
   submitting.value = true;
   try {
-    for (const s of items.value) {
-      const done = !!checked.value[s.id];
-      const current = !!s.is_done;
-      if (done !== current) {
-        await api.schedules.progress(s.id, { is_done: done });
+    for (const item of items.value) {
+      const done = !!checked.value[item.id];
+      if (done) {
+        await api.schedules.progress(item.id, { is_done: true });
+        if (item.book_id) {
+          await api.books.complete(item.book_id);
+        }
+      } else {
+        await api.schedules.progress(item.id, { is_done: false });
       }
     }
     await api.dayLog.report(today, { notes: notes.value });

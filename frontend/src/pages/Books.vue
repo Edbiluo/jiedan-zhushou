@@ -20,6 +20,7 @@ function emptyForm(): CreateBookInput {
   return {
     title: '',
     unit_price: 0,
+    deposit: 0,
     start_date: todayStr,
     deadline: dayjs().add(14, 'day').format('YYYY-MM-DD'),
     page_count: 1,
@@ -109,6 +110,10 @@ function openCreate() {
             <div>
               <label class="text-xs text-ink-500">单价 (¥)</label>
               <input v-model.number="form.unit_price" type="number" min="0" step="1" class="input" />
+            </div>
+            <div>
+              <label class="text-xs text-ink-500">定金 (¥)</label>
+              <input v-model.number="form.deposit" type="number" min="0" placeholder="0" class="input" />
             </div>
             <div>
               <label class="text-xs text-ink-500">页数</label>

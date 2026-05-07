@@ -1,48 +1,48 @@
 # 项目结构 · 接单助手
-更新时间: 2026-04-23 01:25 · 修复 v0.3.5：MainLayout overflow-auto 恢复，解决生产白屏，发布 GitHub Release
+更新时间: 2026-05-07 16:10 · 修复稿费统计三卡片显示¥0 bug：去掉 total_amount/total_deposit 的日期过滤，deposit 改用 COALESCE(deposit,0) 防 NULL
 
 ## 进度总览
-- ✅ 完成: 47 个文件
+- ✅ 完成: 48 个文件
 - 🔄 进行中: 0 个文件
 - 📋 待开发: 0 个文件
-- 当前 sprint: v0.3.5 版本发布完成，白屏问题已修复
+- 当前 sprint: v0.3.9 已发布到 GitHub Release，设置页新增版本更新记录
 
 ---
 
 ## electron/main.js
 **状态**: ✅ 完成
-**功能**: Electron 主进程，初始化数据库、启动 Express 后端服务、注册 IPC 通道、管理应用生命周期和自动更新
-**对外接口**: createWindow, getUserDataDir, ensureImageDirs, scheduleDailyReminder, setupAutoUpdater, registerIpc, app:showUnreportedToday, updater:checkNow, updater:quitAndInstall, app:version, file:pickImage, file:pickImages, file:exportBackup, file:importBackup
+**功能**: Electron 主进程，初始化数据库、启动 Express 后端服务、注册 IPC 通道、管理应用生命周期和自动更新；启动时从 DB 读取 app_name 并设置窗口标题；系统通知 title 动态读取 app_name
+**对外接口**: createWindow, getUserDataDir, ensureImageDirs, scheduleDailyReminder, setupAutoUpdater, registerIpc, app:showUnreportedToday, updater:checkNow, updater:quitAndInstall, app:version, app:setTitle, file:pickImage, file:pickImages, file:exportBackup, file:importBackup
 **关键依赖**: electron, backend/db, backend/server, backend/services
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-04-29 · 新增 app:setTitle IPC，启动时读取 app_name 设置窗口标题，通知动态读取 app_name
 
 ## electron/preload.js
 **状态**: ✅ 完成
 **功能**: Electron 预加载脚本，通过 context bridge 安全暴露 IPC 和文件操作 API 到渲染进程
-**对外接口**: showUnreportedToday, pickImage, pickImages, exportBackup, importBackup, getFilePath, getVersion, checkUpdateNow, quitAndInstall, onUpdaterState
+**对外接口**: showUnreportedToday, pickImage, pickImages, exportBackup, importBackup, setTitle, getFilePath, getVersion, checkUpdateNow, quitAndInstall, onUpdaterState
 **关键依赖**: electron
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-04-29 · 新增 setTitle(title) 方法，调用 app:setTitle IPC
 
 ## backend/db.js
 **状态**: ✅ 完成
-**功能**: SQLite 数据库初始化、连接管理、数据库迁移（v1→v2→v3）
-**对外接口**: initDb, getDb, getDbPath, closeDb, migrateToV2, migrateToV3, runMigrations
+**功能**: SQLite 数据库初始化、连接管理、数据库迁移（v1→v2→v3→v4），migrateToV4 新增 deposit 字段迁移；runMigrations 末尾补写 app_name 默认值保证旧库升级也获得默认名称
+**对外接口**: initDb, getDb, getDbPath, closeDb, migrateToV2, migrateToV3, migrateToV4, runMigrations
 **关键依赖**: better-sqlite3, fs, path
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-05-07 · 新增 migrateToV4：ALTER TABLE book ADD COLUMN deposit；runMigrations 补 current < 4 判断
 
 ## backend/server.js
 **状态**: ✅ 完成
 **功能**: Express 后端服务器，定义 RESTful API 路由（settings, styles, sizes, pages, books, schedules, inspirations, day_tasks, leaves, day_log, stats）
 **对外接口**: startServer, stopServer, buildRouter, wrap (error handler)
 **关键依赖**: express, fs, path, backend/services
-**最后更新**: 2026-04-22 · 架构v2初始化标记
+**最后更新**: 2026-05-05 · GET /api/stats/summary 查询参数从 from/to(YYYY-MM) 改为 fromDate/toDate(YYYY-MM-DD)，默认值为今天和一年前
 
 ## backend/schema.sql
 **状态**: ✅ 完成
-**功能**: SQLite 数据库 schema 定义（11 个表：settings, style, size, page, book, book_page, schedule, leave, day_log, day_work_hours, inspiration, day_task）及预置数据
+**功能**: SQLite 数据库 schema 定义（11 个表：settings, style, size, page, book, book_page, schedule, leave, day_log, day_work_hours, inspiration, day_task）及预置数据；book 表含 deposit 字段；settings 表预置 app_name = '小猪的接单小助手'
 **对外接口**: 数据库表定义、索引、预置款式/尺寸/设置
 **关键依赖**: SQLite
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-05-07 · book 表新增 deposit REAL NOT NULL DEFAULT 0 字段
 
 ## backend/services/backup.js
 **状态**: ✅ 完成
@@ -53,10 +53,10 @@
 
 ## backend/services/books.js
 **状态**: ✅ 完成
-**功能**: 本（book）管理：CRUD、状态计算（完成/逾期/快截止/进行中）、排期生成、页面关联
+**功能**: 本（book）管理：CRUD、状态计算（完成/逾期/快截止/进行中）、排期生成、页面关联；hydrate()中对已completed的书跳过状态重算；create()/update() 支持 deposit 字段
 **对外接口**: list, getById, create, update, remove, markComplete, updateBookPageNote, reorderPages, hydrate, isBookDone, generateScheduleRows
 **关键依赖**: backend/db, backend/services/settings, dayjs
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-05-07 · create()/update() 新增 deposit 参数和字段处理，INSERT/UPDATE 语句包含 deposit
 
 ## backend/services/dayLog.js
 **状态**: ✅ 完成
@@ -123,10 +123,10 @@
 
 ## backend/services/stats.js
 **状态**: ✅ 完成
-**功能**: 稿费统计聚合（月度收入、平均单价、款式分布、完成本数）
-**对外接口**: monthlyIncome, averagePrice, styleDistribution, completedBookCount, summary
+**功能**: 稿费统计聚合（月度收入、平均单价、款式分布、完成本数、待入账金额、月度对比、总金额、总定金、待收金额）
+**对外接口**: monthlyIncome, averagePrice, styleDistribution, completedBookCount, pendingIncome, monthlyComparison, summary
 **关键依赖**: backend/db
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-05-07 · 修复 summary() 中 total_amount/total_deposit 错误的日期过滤（去掉 WHERE date(created_at) BETWEEN ? AND ?，改为查全库）；deposit 字段全部改用 COALESCE(deposit, 0) 防止旧行 NULL 导致 SUM 返回 NULL
 
 ## backend/services/styles.js
 **状态**: ✅ 完成
@@ -151,10 +151,10 @@
 
 ## frontend/src/types/index.ts
 **状态**: ✅ 完成
-**功能**: TypeScript 类型定义文件（Style, Size, Page, Book, Schedule, DayTask, Leave, DayLog, Inspiration, Settings, StatsSummary）
+**功能**: TypeScript 类型定义文件（Style, Size, Page, Book, Schedule, DayTask, Leave, DayLog, Inspiration, Settings, StatsSummary）；Book 接口含 deposit: number；StatsSummary 新增 total_amount/total_deposit/pending_receivable 字段；Settings 接口增加 app_name 可选字段
 **对外接口**: 导出 20+ 个 TS 类型和接口
 **关键依赖**: 无
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-05-07 · Book 新增 deposit: number；StatsSummary 新增 total_amount/total_deposit/pending_receivable 三个统计字段
 
 ## frontend/src/api/client.ts
 **状态**: ✅ 完成
@@ -168,7 +168,7 @@
 **功能**: API 端点统一导出（settings, styles, sizes, pages, books, schedules, leaves, dayLog, dayTasks, inspirations, stats）
 **对外接口**: api 对象包含所有 CRUD 操作
 **关键依赖**: frontend/src/api/client
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-05-05 · stats.summary 参数名从 from/to 改为 fromDate/toDate，URL 参数同步更新
 
 ## frontend/src/router/index.ts
 **状态**: ✅ 完成
@@ -179,10 +179,10 @@
 
 ## frontend/src/utils/palette.ts
 **状态**: ✅ 完成
-**功能**: 马卡龙色板定义和色卡选择函数（10 种本级色卡、任务类型色、状态色）
-**对外接口**: bookPalette, bookGradient, bookSolid, bookInk, MACARON_PALETTE, TASK_PALETTE, STATUS_PALETTE
+**功能**: 马卡龙色板定义和色卡选择函数（10 种本级色卡含 icon 字段、任务类型色、状态色）；bookIcon(id) 按 id%10 返回对应 emoji 图标
+**对外接口**: bookPalette, bookGradient, bookSolid, bookInk, bookIcon, MACARON_PALETTE, TASK_PALETTE, STATUS_PALETTE
 **关键依赖**: 无
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-05-07 · MACARON_PALETTE 每项新增 icon 字段；新增导出函数 bookIcon(id)
 
 ## frontend/src/stores/books.ts
 **状态**: ✅ 完成
@@ -229,16 +229,16 @@
 ## frontend/src/stores/stats.ts
 **状态**: ✅ 完成
 **功能**: 稿费统计数据存储（Pinia），加载日期范围内的统计汇总
-**对外接口**: useStatsStore (state: summary; actions: load)
+**对外接口**: useStatsStore (state: summary; actions: load(fromDate, toDate))
 **关键依赖**: pinia, frontend/src/api
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-05-05 · load 参数名从 from/to 改为 fromDate/toDate
 
 ## frontend/src/layouts/MainLayout.vue
 **状态**: ✅ 完成
-**功能**: 主布局组件，左侧导航栏（6 个主导航）、顶部页面标题栏、右侧内容区路由视图、自动更新徽章；内容区采用 flex 布局，header shrink-0，路由视图区 flex-1 min-h-0 overflow-auto；padding p-6 确保内容有合理间距且可滚动
+**功能**: 主布局组件，左侧导航栏（6 个主导航）、顶部页面标题栏、右侧内容区路由视图、自动更新徽章；侧边栏 h1 标题动态读取 settings store 的 app_name（默认"小猪的接单小助手"）；内容区采用 flex 布局，header shrink-0，路由视图区 flex-1 min-h-0 overflow-auto；padding p-6 确保内容有合理间距且可滚动
 **对外接口**: 导出主布局组件，集成导航和路由出口
-**关键依赖**: vue-router, frontend/src/components/UpdateBadge.vue
-**最后更新**: 2026-04-23 · 修复白屏问题：overflow-hidden 改为 overflow-auto，添加 p-6 padding
+**关键依赖**: vue-router, frontend/src/components/UpdateBadge.vue, frontend/src/stores/settings
+**最后更新**: 2026-04-29 · 侧边栏标题改为动态读取 settings.app_name
 
 ## frontend/src/components/BookCard.vue
 **状态**: ✅ 完成
@@ -270,10 +270,10 @@
 
 ## frontend/src/components/ReminderModal.vue
 **状态**: ✅ 完成
-**功能**: 每日完成情况提醒 modal，输入当日笔记、报告完成情况
+**功能**: 每日完成情况提醒 modal，输入当日笔记、报告完成情况；勾选排期项提交时调用 api.schedules.progress 更新 is_done，同时对已勾选的调 api.books.complete 标记整本书完成；初始化无 || true bug（已修复）
 **对外接口**: v-model 控制显示隐藏，emit 保存事件
 **关键依赖**: frontend/src/api
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-05-07 · 修复 init || true bug；submit() 遍历勾选项调 progress+books.complete 标完成
 
 ## frontend/src/components/UpdateBadge.vue
 **状态**: ✅ 完成
@@ -291,17 +291,17 @@
 
 ## frontend/src/pages/Books.vue
 **状态**: ✅ 完成
-**功能**: 本管理页面，列表展示、按状态过滤、创建新本、搜索、跳转详情；截止日期选择无今天限制
-**对外接口**: 支持本 CRUD、状态过滤、创建对话框
+**功能**: 本管理页面，列表展示、按状态过滤、创建新本、搜索、跳转详情；截止日期选择无今天限制；创建表单含定金输入框（type=number，放在单价旁）
+**对外接口**: 支持本 CRUD、状态过滤、创建对话框（含 deposit 字段）
 **关键依赖**: frontend/src/stores/books, frontend/src/components/BookCard.vue
-**最后更新**: 2026-04-22 · 截止日期选择器移除早于今天限制
+**最后更新**: 2026-05-07 · emptyForm() 新增 deposit: 0；创建表单新增定金输入框（与单价并列）
 
 ## frontend/src/pages/Calendar.vue
 **状态**: ✅ 完成
-**功能**: 日历看板，月度日历网格、日排期展示、进度报告、请假申请、任务拖拽、快速完成；flex布局彻底重构：最外层h-full flex-col，顶部/表头shrink-0，月份区flex-1占满剩余高度；每周行flex-1等分高度（不依赖minHeight），日期格子flex-1等分列宽；所有内容区overflow隐藏于各层级而非单一overflow-auto；过去日期视觉灰化区分；右侧抽屉支持滚动；底部padding防止溢出
+**功能**: 日历看板，月度日历网格、日期格子内 emoji 图标（bookIcon 按本 id 取色板对应 emoji，最多3个+溢出计数）、任务徽章嵌入格子、进度报告、请假申请、快速完成；flex布局：最外层h-full flex-col，顶部/表头shrink-0，月份区flex-1等分；彻底移除跨日bar条带层；右侧抽屉支持滚动；底部padding防止溢出
 **对外接口**: 交互式日历、排期管理、请假/任务管理
-**关键依赖**: frontend/src/stores/schedule, frontend/src/stores/dayTasks, dayjs
-**最后更新**: 2026-04-22 · 消除overflow-auto嵌套冲突，周行改为flex-1等分，日期格子加flex-1
+**关键依赖**: frontend/src/stores/schedule, frontend/src/stores/dayTasks, frontend/src/utils/palette (bookSolid, bookIcon), dayjs
+**最后更新**: 2026-05-07 · 格子内彩色细条改为 emoji 图标，导入并使用 bookIcon(book_id)
 
 ## frontend/src/pages/Inspirations.vue
 **状态**: ✅ 完成
@@ -319,17 +319,17 @@
 
 ## frontend/src/pages/Settings.vue
 **状态**: ✅ 完成
-**功能**: 应用设置页，修改提醒时间、截止阈值、主题、款式/尺寸增删、数据备份/恢复
-**对外接口**: 支持全局设置更新、枚举值管理、备份导出/导入
-**关键依赖**: frontend/src/stores/settings, electronAPI
-**最后更新**: 2026-04-22 · 初始化扫描
+**功能**: 应用设置页，顶部新增"应用名称"卡片（输入框+保存按钮，保存后同步调用 electronAPI.setTitle 更新窗口标题），以及修改提醒时间、截止阈值、主题、款式/尺寸增删、数据备份/恢复；底部新增"版本更新记录"卡片，展示 CHANGELOG 历史版本号及更新内容，当前版本加品牌色徽章高亮
+**对外接口**: 支持全局设置更新（含 app_name）、枚举值管理、备份导出/导入、版本更新记录展示
+**关键依赖**: frontend/src/stores/settings, frontend/src/data/changelog, electronAPI
+**最后更新**: 2026-05-05 · 底部新增"版本更新记录"卡片，import CHANGELOG + currentVersion 高亮当前版本
 
 ## frontend/src/pages/Stats.vue
 **状态**: ✅ 完成
-**功能**: 稿费统计页，月度收入图表、平均单价、款式分布、完成本数趋势、日期范围选择
-**对外接口**: 支持日期范围查询、统计数据展示
-**关键依赖**: frontend/src/stores/stats
-**最后更新**: 2026-04-22 · 初始化扫描
+**功能**: 稿费统计页，快捷日期按钮（近1天/3天/一周/一月默认展示，近3月/半年/一年/全部折叠）、汇总卡片第一行（完成本数/件均价/待入账/加油）、汇总卡片第二行（总金额/总定金/待收金额）、月度收入折线图、完成本数柱状图、款式饼图、金额对比堆叠图（独立日期段）
+**对外接口**: 支持快捷日期选择、统计数据展示、金额对比可视化
+**关键依赖**: frontend/src/stores/stats, frontend/src/api, dayjs, vue-echarts
+**最后更新**: 2026-05-07 · 新增第二行三卡片（总金额/总定金/待收金额），使用 total_amount/total_deposit/pending_receivable 字段
 
 ## frontend/vite.config.ts
 **状态**: ✅ 完成
@@ -354,14 +354,21 @@
 
 ## scripts/publish-release.js
 **状态**: ✅ 完成
-**功能**: GitHub 发布脚本，清理代理环境变量、调用 electron-builder 构建并发布 Windows 安装包
+**功能**: GitHub 发布脚本，清理代理环境变量、先执行前端构建（npm run build:frontend）、调用 electron-builder 构建并发布 Windows 安装包
 **对外接口**: 独立运行脚本，读 .env.local 和系统环境
-**关键依赖**: child_process, fs, path
-**最后更新**: 2026-04-22 · 初始化扫描
+**关键依赖**: child_process, fs, path, npm scripts (build:frontend)
+**最后更新**: 2026-04-23 · 补充前端构建步骤，修复发版流程
 
 ## package.json
 **状态**: ✅ 完成
-**功能**: 项目元数据和依赖配置（名称 jiedan-zhushou、版本 0.3.5、npm scripts、electron-builder 配置、GitHub 发布配置）
+**功能**: 项目元数据和依赖配置（名称 jiedan-zhushou、版本 0.3.9、npm scripts、electron-builder 配置、GitHub 发布配置）；productName 已改为"小猪的接单小助手"
 **对外接口**: npm 脚本（dev, build, dev:frontend, dev:electron 等）
 **关键依赖**: adm-zip, better-sqlite3, dayjs, electron-updater, express, sharp, uuid 及开发依赖
-**最后更新**: 2026-04-23 · 版本升级至 0.3.5，Windows 安装包已发布到 GitHub Release（v0.3.5），白屏修复版本
+**最后更新**: 2026-05-05 · 版本升级至 0.3.9，设置页新增版本更新记录
+
+## frontend/src/data/changelog.ts
+**状态**: ✅ 完成
+**功能**: 版本更新日志数据文件，定义 ChangelogEntry 接口和 CHANGELOG 常量数组，记录 v0.3.5～v0.3.9 的版本历史及更新内容（从新到旧排列）
+**对外接口**: 导出 ChangelogEntry 接口和 CHANGELOG 数组
+**关键依赖**: 无
+**最后更新**: 2026-05-05 · 追加 v0.3.9 记录：设置页新增版本更新记录，展示历史版本号与更新内容

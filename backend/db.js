@@ -135,6 +135,14 @@ function migrateToV3(d) {
   ).run();
 }
 
+function migrateToV4(d) {
+  const cols = d.prepare("PRAGMA table_info(book)").all().map(c => c.name);
+  if (!cols.includes('deposit')) {
+    d.exec("ALTER TABLE book ADD COLUMN deposit REAL NOT NULL DEFAULT 0");
+  }
+  d.prepare("INSERT INTO settings(key,value) VALUES('schema_version','4') ON CONFLICT(key) DO UPDATE SET value='4'").run();
+}
+
 function runMigrations(d) {
   let current = 1;
   try {
@@ -144,6 +152,7 @@ function runMigrations(d) {
 
   if (current < 2) migrateToV2(d);
   if (current < 3) migrateToV3(d);
+  if (current < 4) migrateToV4(d);
 
   // 保证旧库也有 app_name 默认值（新库由 schema.sql 的 INSERT OR IGNORE 覆盖）
   try {
