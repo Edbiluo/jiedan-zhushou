@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.4.1',
+    date: '2026-05-14',
+    items: [
+      '修复已完成状态仍显示延期天数的问题',
+    ],
+  },
+  {
     version: 'v0.4.0',
     date: '2026-05-07',
     items: [
