@@ -45,8 +45,8 @@ const gradient = computed(() => bookGradient(props.book.id));
       </div>
       <div>
         <div class="text-base"
-             :class="daysLeft < 0 ? 'text-[#D98B92]' : daysLeft <= 3 ? 'text-[#E4B77A]' : 'text-ink-900'">
-          {{ daysLeft < 0 ? `延 ${-daysLeft}` : daysLeft === 0 ? '今天' : `${daysLeft}天` }}
+             :class="status === 'completed' ? 'text-ink-900' : daysLeft < 0 ? 'text-[#D98B92]' : daysLeft <= 3 ? 'text-[#E4B77A]' : 'text-ink-900'">
+          {{ status === 'completed' ? '—' : daysLeft < 0 ? `延 ${-daysLeft}` : daysLeft === 0 ? '今天' : `${daysLeft}天` }}
         </div>
         <div>{{ book.deadline }}</div>
       </div>

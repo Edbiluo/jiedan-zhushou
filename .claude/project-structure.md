@@ -1,11 +1,11 @@
 # 项目结构 · 接单助手
-更新时间: 2026-05-07 16:10 · 修复稿费统计三卡片显示¥0 bug：去掉 total_amount/total_deposit 的日期过滤，deposit 改用 COALESCE(deposit,0) 防 NULL
+更新时间: 2026-05-14 · 修复已完成状态的本仍显示延期天数的问题
 
 ## 进度总览
 - ✅ 完成: 48 个文件
 - 🔄 进行中: 0 个文件
 - 📋 待开发: 0 个文件
-- 当前 sprint: v0.3.9 已发布到 GitHub Release，设置页新增版本更新记录
+- 当前 sprint: v0.4.0 已发布到 GitHub Release，日历emoji标记、定金字段、统计优化、bug修复
 
 ---
 
@@ -242,10 +242,10 @@
 
 ## frontend/src/components/BookCard.vue
 **状态**: ✅ 完成
-**功能**: 本卡片组件，展示本基本信息、状态、截止日期、进度条等
+**功能**: 本卡片组件，展示本基本信息、状态、截止日期、进度条等；已完成状态不显示延期天数，改为显示"—"
 **对外接口**: 接收 book prop，emit 删除/编辑/完成事件
 **关键依赖**: frontend/src/utils/palette
-**最后更新**: 2026-04-22 · 初始化扫描
+**最后更新**: 2026-05-14 · 已完成状态跳过延期天数显示，改为"—"
 
 ## frontend/src/components/Confetti.vue
 **状态**: ✅ 完成
@@ -361,14 +361,14 @@
 
 ## package.json
 **状态**: ✅ 完成
-**功能**: 项目元数据和依赖配置（名称 jiedan-zhushou、版本 0.3.9、npm scripts、electron-builder 配置、GitHub 发布配置）；productName 已改为"小猪的接单小助手"
+**功能**: 项目元数据和依赖配置（名称 jiedan-zhushou、版本 0.4.0、npm scripts、electron-builder 配置、GitHub 发布配置）；productName 已改为"小猪的接单小助手"
 **对外接口**: npm 脚本（dev, build, dev:frontend, dev:electron 等）
 **关键依赖**: adm-zip, better-sqlite3, dayjs, electron-updater, express, sharp, uuid 及开发依赖
-**最后更新**: 2026-05-05 · 版本升级至 0.3.9，设置页新增版本更新记录
+**最后更新**: 2026-05-07 · 版本升级至 0.4.0，日历emoji标记、定金字段、统计优化、bug修复
 
 ## frontend/src/data/changelog.ts
 **状态**: ✅ 完成
-**功能**: 版本更新日志数据文件，定义 ChangelogEntry 接口和 CHANGELOG 常量数组，记录 v0.3.5～v0.3.9 的版本历史及更新内容（从新到旧排列）
+**功能**: 版本更新日志数据文件，定义 ChangelogEntry 接口和 CHANGELOG 常量数组，记录 v0.3.5～v0.4.0 的版本历史及更新内容（从新到旧排列）
 **对外接口**: 导出 ChangelogEntry 接口和 CHANGELOG 数组
 **关键依赖**: 无
-**最后更新**: 2026-05-05 · 追加 v0.3.9 记录：设置页新增版本更新记录，展示历史版本号与更新内容
+**最后更新**: 2026-05-07 · 追加 v0.4.0 记录：日报弹窗标完成、日历emoji图标、定金字段、统计三卡片、bug修复
